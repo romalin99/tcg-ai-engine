@@ -1,0 +1,39 @@
+// ============================================================================
+// 积分规则（salience 152~150）：只有 approve 的订单给积分。
+//
+// 互斥组：闸门 = Result.PointsRate == 0.0，倍率只定一次，高档优先。
+// 规则只定"倍率"这一个参数，实际积分数在 Go 侧 Result.Finalize() 里结算
+// ——规则与计算分离。
+// ============================================================================
+
+rule Points_VipRate "VIP 及以上 2 倍积分" salience 152 {
+    when
+        Result.Decision == "approve" &&
+        Result.PointsRate == 0.0 &&
+        Customer.Level >= 3
+    then
+        Result.PointsRate = 2.0;
+        Result.AddHit("Points_VipRate");
+        Retract("Points_VipRate");
+}
+
+rule Points_NewCustomerRate "新客 1.5 倍积分" salience 151 {
+    when
+        Result.Decision == "approve" &&
+        Result.PointsRate == 0.0 &&
+        Customer.IsNew()
+    then
+        Result.PointsRate = 1.5;
+        Result.AddHit("Points_NewCustomerRate");
+        Retract("Points_NewCustomerRate");
+}
+
+rule Points_BaseRate "基础 1 倍积分" salience 150 {
+    when
+        Result.Decision == "approve" &&
+        Result.PointsRate == 0.0
+    then
+        Result.PointsRate = 1.0;
+        Result.AddHit("Points_BaseRate");
+        Retract("Points_BaseRate");
+}

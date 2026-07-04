@@ -1,0 +1,185 @@
+*.log
+.DS_Store
+### Go template
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+cmd/api/ucs-fe
+RESPONSE_CODES.md
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+.idea/workspace.xml
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+.idea
+.cache
+coverage.out
+coverage.html
+
+# Go binaries
+/bin/
+/dist/
+/out/
+
+.gocache/
+
+.vscode/
+.claude/
+.DS_Store
+.bak
+.demo
+
+
+
+# ==================== Rust / Cargo ====================
+
+# Build output
+target/
+# Cargo lock file
+# Binary project → keep Cargo.lock
+# Library project → ignore Cargo.lock
+# Cargo.lock
+
+# Cargo temp
+**/.cargo-ok
+
+# Cargo local registry cache (optional)
+.cargo/
+
+# ==================== Backup files ====================
+
+**/*.rs.bk
+*~
+*.swp
+*.swo
+*.swn
+# ==================== Environment ====================
+
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# ==================== Tools Ide ====================
+.git
+.ignore
+.idea/
+.vscode/
+#.claude/
+.agents/
+.cursor/
+.codex/
+.env
+
+# ==================== OS files ====================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==================== Logs ====================
+
+# 只忽略仓库根目录的运行日志目录，pkg/logs 是源码
+/logs/
+*.log
+*.out
+
+# ==================== Build artifacts ====================
+
+dist/
+build/
+out/
+doc/
+.cppdemo
+*.tar.gz
+*.zip
+
+# ==================== Local config ====================
+
+config/local.toml
+config/*.local.toml
+
+# ==================== Cache & temp ====================
+
+.cache/
+tmp/
+temp/
+.bak/
+
+# Tool caches
+.just/
+.direnv/
+.atuin/
+
+# ==================== Docker ====================
+
+.docker/
+
+# ==================== Testing ====================
+
+# Coverage reports
+coverage/
+htmlcov/
+lcov.info
+
+# Raw profiling data (cargo-llvm-cov / grcov)
+*.profraw
+*.profdata
+
+# Mutation testing (cargo-mutants)
+**/mutants.out*/
+
+# Test result artifacts
+test-results/
+
+# ==================== Profiling & benchmarks ====================
+
+perf.data*
+*.perf
+criterion/
+flamegraph.svg
+bench-results/
+# ==================== Debug symbols ====================
+
+*.pdb
+*.dSYM
+
+# ==================== Generated files ====================
+
+# protobuf
+*.pb.rs
+
+# SQLx offline query cache
+.sqlx/
+
+# ==================== WASM ====================
+
+wasm-pack.log
+
+# ==================== Frontend (if applicable) ====================
+
+node_modules/
+
+# ==================== Database ORM ====================
+
+# Prisma
+.prisma/

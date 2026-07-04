@@ -1,0 +1,121 @@
+package main
+
+import (
+	"bak/model"
+	"context"
+	"fmt"
+
+	"github.com/hyperjumptech/grule-rule-engine/ast"
+	"github.com/hyperjumptech/grule-rule-engine/builder"
+	"github.com/hyperjumptech/grule-rule-engine/engine"
+	"github.com/hyperjumptech/grule-rule-engine/pkg"
+	"go.uber.org/zap"
+)
+
+// traceListener 引擎监听器：实现 engine.GruleEngineListener 接口，
+// 由 Execute() 在推理循环的固定时机回调（见文件头 ①④ 两步），
+// 用于观察每个 cycle 里"谁被评估为候选、谁最终被执行"。
+type traceListener struct{}
+
+// BeginCycle 每个 cycle 开始（评估阶段之前）被调用一次。
+func (t *traceListener) BeginCycle(ctx context.Context, cycle uint64) {
+	fmt.Printf("--- cycle %d ---\n", cycle)
+}
+
+// EvaluateRuleEntry 评估阶段每评估完一条规则的 when 就被调用一次；
+// candidate=true 表示 when 成立、该规则已进入冲突集。
+// 回调顺序 = 引擎内部 map 的遍历顺序，每轮可能不同，与 salience 无关。
+func (t *traceListener) EvaluateRuleEntry(ctx context.Context, cycle uint64, entry *ast.RuleEntry, candidate bool) {
+	if candidate {
+		fmt.Printf("  候选: %s\n", entry.RuleName)
+	}
+}
+
+// ExecuteRuleEntry 冲突消解选出唯一赢家、即将执行其 then 时被调用。
+// 每个 cycle 至多回调一次——一轮只执行一条规则。
+func (t *traceListener) ExecuteRuleEntry(ctx context.Context, cycle uint64, entry *ast.RuleEntry) {
+	fmt.Printf("  执行: %s\n", entry.RuleName)
+}
+
+func main() {
+	// 注入真实logger（默认是Noop，规则里的 Log()/LogFormat() 不会有任何输出）
+	// 注意：GRL内置Log()用的是ast包的GrlLogger，必须调ast.SetLogger才生效；
+	// logger.SetLogger只改logger.Log，各包init时已缓存Noop副本，改了也没人用
+	// ast.SetLogger 内部按类型分发，原生支持 *zap.Logger / *logrus.Logger / *zerolog.Logger
+	// 开发模式配置（人类可读格式），但级别提到 Info——
+	// Debug 级别下 grule 会打印海量 AST 构建/求值内部日志，淹没规则输出
+	zapCfg := zap.NewDevelopmentConfig()
+	zapCfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	zapLog, err := zapCfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	defer zapLog.Sync()
+	ast.SetLogger(zapLog)
+
+	// 创建订单——这就是推理引擎操作的"事实"（fact）。/创建 Fact（事实/数据）
+	// 规则的 when 读它的字段/方法，then 改它的字段，全部通过反射完成，
+	// 所以必须传指针，否则 then 里的赋值改不到原对象。
+	order := &model.Order{
+		Amount:   12000,
+		VIP:      true,
+		Discount: 1.0,
+		Freight:  20,
+	}
+
+	// 创建DataContext：事实容器, 并添加Fact
+	// Add 的第一个参数 "Order" 就是 GRL 文件里 Order.Amount、Order.IsBigOrder()
+	// 中 "Order" 这个名字的来源——名字对不上规则就找不到对象。
+	dataContext := ast.NewDataContext()
+	dataContext.Add("Order", order) //注册事实，"Order" 即 GRL 里引用的名字 / Order 是规则中引用的名称
+	// 创建Knowledge Library：已编译规则集（AST）的仓库，
+	// 以 (name, version) 为键，可存多套规则、可被多个引擎共享。
+	knowledgeLibrary := ast.NewKnowledgeLibrary()
+	// 创建Rule Builder：负责把 GRL 文本解析成 AST 并注册进上面的 Library。
+	ruleBuilder := builder.NewRuleBuilder(knowledgeLibrary)
+
+	// 加载GRL文件。除文件外还有 NewBytesResource / NewURLResource 等来源。
+	resource := pkg.NewFileResource("rules/order.grl")
+	// bundle 加载多个文件
+	// bundle := pkg.NewFileResourceBundle("/path/to/rules", "**/*.grl")
+
+	// 规则文件绑定：解析 order.grl，以 ("OrderRules", "0.0.1") 为键存入 Library。
+	// GRL 语法错误（如规则名重复）在这一步就会报出来，而不是等到执行时。
+	err = ruleBuilder.BuildRuleFromResource("OrderRules", "0.0.1", resource)
+	if err != nil {
+		panic(err)
+	}
+
+	// 创建KnowledgeBase：从 Library 按 (name, version) 取出一份规则集实例。
+	// 实例持有执行期状态（如 Retract 的撤回标记），并发执行时各协程应各取一份实例。
+	knowledgeBase, err := knowledgeLibrary.NewKnowledgeBaseInstance("OrderRules", "0.0.1")
+	if err != nil {
+		panic(err)
+	}
+
+	// 创建推理引擎。引擎本身无状态，MaxCycle 默认 5000：
+	// 若规则不会"熄火"（不 Retract、条件也不变 false），跑满上限会返回错误。
+	eng := engine.NewGruleEngine()
+
+	// 挂载监听器，跟踪每个cycle的规则评估与执行
+	eng.Listeners = []engine.GruleEngineListener{&traceListener{}}
+
+	// 执行规则：进入文件头注释描述的 cycle 循环，
+	// 直到某一轮候选集为空才返回。返回后 order 里的
+	// Discount/Freight 已被规则改写（本例：0.9 / 0）。
+	err = eng.Execute(dataContext, knowledgeBase)
+	if err != nil {
+		panic(err)
+	}
+
+	// 执行普通业务代码：规则只负责"定参数"（折扣、运费），
+	// 最终价的计算留在 Go 代码里，体现"规则与计算分离"。
+	order.Calc()
+
+	// 输出
+	fmt.Println("原价：", order.Amount)
+	fmt.Println("VIP：", order.VIP)
+	fmt.Println("折扣：", order.Discount)
+	fmt.Println("运费：", order.Freight)
+	fmt.Println("最终价格：", order.FinalAmount)
+}

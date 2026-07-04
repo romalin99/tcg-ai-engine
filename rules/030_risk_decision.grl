@@ -1,0 +1,42 @@
+// ============================================================================
+// 决策规则（salience 500~498）：按累计 RiskScore 定档。
+//
+// 互斥方式二：闸门字段。三条规则都以 Result.Decision == "" 作为前置条件，
+// salience 高的先执行、写入 Decision 后闸门关闭，其余两条从此不再成为候选。
+// 一单只会有一个决策结论。
+//
+// salience 低于所有评分规则（890~871），保证"先算完分、再定档"：
+// 冲突消解每轮只执行候选集中 salience 最高的一条，评分规则不退场（Retract）
+// 完毕，决策规则永远轮不到。
+//
+// 注意这里不用 Complete()：拒单后仍允许（比如）日志规则运行；
+// 后续折扣/运费/积分规则各自用 Decision 闸门自行避让，两种互斥手段配合使用。
+// ============================================================================
+
+rule Decision_RejectByScore "风险分过高，拒单" salience 500 {
+    when
+        Result.Decision == "" &&
+        Result.RiskScore >= 60.0
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "风险分过高";
+        Result.AddHit("Decision_RejectByScore");
+        LogFormat("Decision_RejectByScore: 风险分 %v", Result.RiskScore);
+}
+
+rule Decision_ReviewByScore "风险分中等，转人工审核" salience 499 {
+    when
+        Result.Decision == "" &&
+        Result.RiskScore >= 35.0
+    then
+        Result.Decision = "review";
+        Result.AddHit("Decision_ReviewByScore");
+}
+
+rule Decision_Approve "默认放行" salience 498 {
+    when
+        Result.Decision == ""
+    then
+        Result.Decision = "approve";
+        Result.AddHit("Decision_Approve");
+}

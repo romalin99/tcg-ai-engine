@@ -1,0 +1,21 @@
+# 风控规则引擎配置（默认：本地文件规则源，开箱即用）
+
+[server]
+addr = ":8080"
+shutdown_seconds = 10
+
+[log]
+level = "info"    # debug / info / warn / error
+grl_trace = false # true 时把每个推理 cycle 的候选/执行规则打到 debug 日志（排障用）
+
+[rules]
+source = "file"             # file（默认，从目录加载 *.grl）/ oracle（从规则表加载）
+reload_interval_seconds = 5 # 热更新轮询间隔（秒），<=0 关闭自动热更新
+
+[rules.file]
+dir = "rules" # *.grl 规则目录
+
+[rules.oracle]
+# go-ora 连接串：oracle://user:pass@host:1521/service_name
+dsn = ""
+table = "RISK_RULES"

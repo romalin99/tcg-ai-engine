@@ -1,0 +1,53 @@
+// 风控规则：同时引用 Order / Customer / Merchant 三个 Fact
+// salience 设计：风控（300~280）> 折扣（101~100）> 运费（93~92），
+// 保证"先定生死，再谈优惠"。
+
+// 拒单规则：跨 Fact 联动（Customer 方法 + Merchant 方法）
+// salience 最高，抢在所有折扣规则之前执行
+rule RejectHighRiskCombo "新客在高风险商户下单，直接拒单" salience 300 {
+    when
+        Order.Rejected == false &&
+        Customer.IsNew() &&
+        Merchant.IsHighRisk()
+    then
+        Log("RejectHighRiskCombo 触发: 拒单");
+        Order.Rejected = true;
+        Order.RejectReason = "新注册客户在高风险商户下单";
+        Order.RiskScore = Order.RiskScore + 60;
+        Retract("RejectHighRiskCombo");
+}
+
+// 风险分累加：只看 Merchant 一个 Fact
+rule RefundRateRisk "高退款率商户加风险分" salience 290 {
+    when
+        Merchant.RefundRate > 0.10
+    then
+        LogFormat("RefundRateRisk 触发: 退款率 %v", Merchant.RefundRate);
+        Order.RiskScore = Order.RiskScore + 20;
+        Retract("RefundRateRisk");
+}
+
+// 嵌套结构访问：Customer.Address.Country 两级字段
+rule ForeignAddressRisk "海外收货地址加风险分" salience 289 {
+    when
+        Customer.Address.Country != "CN"
+    then
+        LogFormat("ForeignAddressRisk 触发: 国家 %s", Customer.Address.Country);
+        Order.RiskScore = Order.RiskScore + 10;
+        Retract("ForeignAddressRisk");
+}
+
+// 带参数的方法调用 HasTag("loyal") + 链式折扣：
+// salience 100 < VipDiscount 的 101，所以在 VIP 九折之后执行，
+// 在 0.9 的基础上再乘 0.95（叠加折扣，体现事实修改后的链式推理）
+rule LoyalCustomerExtraDiscount "忠实老客+可信商户，折上95折" salience 100 {
+    when
+        Order.Rejected == false &&
+        Customer.Level >= 3 &&
+        Customer.HasTag("loyal") &&
+        Merchant.IsTrusted()
+    then
+        Log("LoyalCustomerExtraDiscount 触发: 折上95折");
+        Order.Discount = Order.Discount * 0.95;
+        Retract("LoyalCustomerExtraDiscount");
+}

@@ -1,0 +1,88 @@
+// ============================================================================
+// 硬拒单规则（salience 1000~994）：命中即终局，Complete() 立刻终止推理，
+// 后续所有评分/折扣/运费/积分规则一概不再执行——"先定生死，再谈优惠"。
+//
+// 互斥方式一：Complete()。整个引擎停机，是最强的互斥。
+// 规则名要求全局唯一（跨所有 .grl 文件），构建 KnowledgeBase 时重名会直接报错。
+// ============================================================================
+
+rule HardReject_CustomerBlacklist "客户在黑名单，直接拒单" salience 1000 {
+    when
+        Customer.Blacklisted == true
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "客户在黑名单";
+        Result.RiskScore = Result.RiskScore + 100.0;
+        Result.AddHit("HardReject_CustomerBlacklist");
+        Log("HardReject_CustomerBlacklist: 拒单");
+        Complete();
+}
+
+rule HardReject_MerchantBlacklist "商户在黑名单，直接拒单" salience 999 {
+    when
+        Merchant.Blacklisted == true
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "商户在黑名单";
+        Result.RiskScore = Result.RiskScore + 100.0;
+        Result.AddHit("HardReject_MerchantBlacklist");
+        Complete();
+}
+
+rule HardReject_OutOfStock "商品无库存，直接拒单" salience 998 {
+    when
+        Product.IsOutOfStock()
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "商品无库存";
+        Result.AddHit("HardReject_OutOfStock");
+        Complete();
+}
+
+// 组合条件：Product + Customer 两个 Fact 联动
+rule HardReject_RestrictedAbroad "管制商品不支持海外收货" salience 997 {
+    when
+        Product.Restricted == true &&
+        Customer.Address.Country != "CN"
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "管制商品不支持海外收货地址";
+        Result.AddHit("HardReject_RestrictedAbroad");
+        Complete();
+}
+
+// 组合条件：Product + Order
+rule HardReject_RestrictedOverbuy "管制商品限购 2 件" salience 996 {
+    when
+        Product.Restricted == true &&
+        Order.Quantity > 2
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "管制商品限购2件";
+        Result.AddHit("HardReject_RestrictedOverbuy");
+        Complete();
+}
+
+// 组合条件：Customer 方法 + Merchant 方法，跨 Fact 的经典风控组合
+rule HardReject_NewCustomerHighRiskMerchant "新客在高风险商户下单，直接拒单" salience 995 {
+    when
+        Customer.IsNew() &&
+        Merchant.IsHighRisk()
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "新注册客户在高风险商户下单";
+        Result.RiskScore = Result.RiskScore + 60.0;
+        Result.AddHit("HardReject_NewCustomerHighRiskMerchant");
+        Complete();
+}
+
+rule HardReject_ChargebackAbuser "拒付惯犯，直接拒单" salience 994 {
+    when
+        Customer.ChargebackCount >= 3
+    then
+        Result.Decision = "reject";
+        Result.RejectReason = "历史拒付次数过多";
+        Result.RiskScore = Result.RiskScore + 80.0;
+        Result.AddHit("HardReject_ChargebackAbuser");
+        Complete();
+}

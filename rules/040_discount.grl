@@ -1,0 +1,117 @@
+// ============================================================================
+// 折扣规则（salience 300~289）：互斥 + 叠加两种形态同场演示。
+//
+// 互斥组（300~294）：一单只能命中一个折扣档位。
+// 闸门 = Result.DiscountName == ""，salience 即档位优先级：
+// 钻石 > 金卡大单 > 金卡 > VIP 大单 > VIP > 首单 > 大额。
+// 客户同时满足多档时（如钻石会员又是大额订单），只有最高档生效。
+//
+// 叠加规则（289）：不看 DiscountName 闸门（但要求已有档位），
+// 在已定档位基础上折上折——展示"互斥"与"叠加"只是闸门条件写法的差别。
+//
+// 所有折扣规则都要求未被拒单（Decision != "reject"）；
+// 决策规则（salience 500~498）先于本组执行，此时 Decision 必然已有值。
+// ============================================================================
+
+rule Discount_Diamond "钻石会员 85 折" salience 300 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Customer.Level >= 5
+    then
+        Result.Discount = 0.85;
+        Result.DiscountName = "diamond";
+        Result.AddHit("Discount_Diamond");
+        Retract("Discount_Diamond");
+}
+
+rule Discount_GoldBigOrder "金卡会员大额订单 86 折" salience 299 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Customer.Level == 4 &&
+        Order.IsBigOrder()
+    then
+        Result.Discount = 0.86;
+        Result.DiscountName = "gold_big";
+        Result.AddHit("Discount_GoldBigOrder");
+        Retract("Discount_GoldBigOrder");
+}
+
+rule Discount_Gold "金卡会员 88 折" salience 298 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Customer.Level == 4
+    then
+        Result.Discount = 0.88;
+        Result.DiscountName = "gold";
+        Result.AddHit("Discount_Gold");
+        Retract("Discount_Gold");
+}
+
+rule Discount_VipBigOrder "VIP 大额订单 9 折" salience 297 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Customer.Level == 3 &&
+        Order.IsBigOrder()
+    then
+        Result.Discount = 0.90;
+        Result.DiscountName = "vip_big";
+        Result.AddHit("Discount_VipBigOrder");
+        Retract("Discount_VipBigOrder");
+}
+
+rule Discount_Vip "VIP 92 折" salience 296 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Customer.Level == 3
+    then
+        Result.Discount = 0.92;
+        Result.DiscountName = "vip";
+        Result.AddHit("Discount_Vip");
+        Retract("Discount_Vip");
+}
+
+rule Discount_FirstOrder "首单 95 折" salience 295 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Order.IsFirst == true
+    then
+        Result.Discount = 0.95;
+        Result.DiscountName = "first_order";
+        Result.AddHit("Discount_FirstOrder");
+        Retract("Discount_FirstOrder");
+}
+
+rule Discount_BigAmount "大额订单 97 折" salience 294 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName == "" &&
+        Order.Amount >= 5000.0
+    then
+        Result.Discount = 0.97;
+        Result.DiscountName = "big_amount";
+        Result.AddHit("Discount_BigAmount");
+        Retract("Discount_BigAmount");
+}
+
+// 叠加折扣：忠实老客 + 可信商户，在已命中的档位上再打 95 折。
+// 组合条件跨 Customer / Merchant / Result 三个 Fact；
+// ExtraDiscount 闸门防止重复叠加（Discount 改变会触发重新评估）。
+rule Discount_LoyalTrustedExtra "忠实老客+可信商户，折上 95 折" salience 289 {
+    when
+        Result.Decision != "reject" &&
+        Result.DiscountName != "" &&
+        Result.ExtraDiscount == false &&
+        Customer.HasTag("loyal") &&
+        Merchant.IsTrusted()
+    then
+        Result.Discount = Result.Discount * 0.95;
+        Result.ExtraDiscount = true;
+        Result.AddHit("Discount_LoyalTrustedExtra");
+        Retract("Discount_LoyalTrustedExtra");
+}

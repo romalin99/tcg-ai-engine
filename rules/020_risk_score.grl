@@ -1,0 +1,161 @@
+// ============================================================================
+// 风险评分规则（salience 890~871）：每条规则独立累加/减免 RiskScore，
+// 互不互斥——同一单可以同时命中多条评分规则。
+//
+// 每条规则末尾 Retract 自己：RiskScore 被修改会触发下一个 cycle 重新评估，
+// 不 Retract 的话同一条规则会在新 cycle 里再次命中、无限加分，
+// 直到引擎跑满 MaxCycle 报错。Retract 状态在每次 Execute 开始时自动复位。
+//
+// 走到这里说明硬拒单规则都没命中（否则已 Complete），所以无需再判 Decision。
+// RiskScore 在 then 里必须用 `=` 赋值（而不是封装成 AddScore() 方法）：
+// 决策规则的 when 引用了 RiskScore，直接赋值 grule 才会失效表达式缓存。
+// ============================================================================
+
+rule Score_ForeignAddress "海外收货地址 +10" salience 890 {
+    when
+        Customer.Address.Country != "CN"
+    then
+        Result.RiskScore = Result.RiskScore + 10.0;
+        Result.AddHit("Score_ForeignAddress");
+        Retract("Score_ForeignAddress");
+}
+
+// 组合条件：Order + Customer，IP 归属国与收货国不一致
+rule Score_IPCountryMismatch "IP 归属国与收货国不一致 +20" salience 889 {
+    when
+        Order.IPCountry != "" &&
+        Order.IPCountry != Customer.Address.Country
+    then
+        Result.RiskScore = Result.RiskScore + 20.0;
+        Result.AddHit("Score_IPCountryMismatch");
+        Retract("Score_IPCountryMismatch");
+}
+
+rule Score_NightOrder "凌晨下单 +10" salience 888 {
+    when
+        Order.IsNightOrder()
+    then
+        Result.RiskScore = Result.RiskScore + 10.0;
+        Result.AddHit("Score_NightOrder");
+        Retract("Score_NightOrder");
+}
+
+rule Score_BigOrderNewCustomer "新客大额订单 +30" salience 887 {
+    when
+        Order.IsBigOrder() &&
+        Customer.IsNew()
+    then
+        Result.RiskScore = Result.RiskScore + 30.0;
+        Result.AddHit("Score_BigOrderNewCustomer");
+        Retract("Score_BigOrderNewCustomer");
+}
+
+rule Score_MissingDevice "缺失设备指纹 +15" salience 886 {
+    when
+        Order.DeviceID == ""
+    then
+        Result.RiskScore = Result.RiskScore + 15.0;
+        Result.AddHit("Score_MissingDevice");
+        Retract("Score_MissingDevice");
+}
+
+// 组合条件：Product + Order，虚拟商品大额订单（典型盗刷套现模式）
+rule Score_VirtualBigAmount "虚拟商品大额订单 +25" salience 885 {
+    when
+        Product.IsVirtual == true &&
+        Order.Amount >= 5000.0
+    then
+        Result.RiskScore = Result.RiskScore + 25.0;
+        Result.AddHit("Score_VirtualBigAmount");
+        Retract("Score_VirtualBigAmount");
+}
+
+rule Score_HighRiskCategory "高风险类目 +15" salience 884 {
+    when
+        Product.IsHighRiskCategory()
+    then
+        Result.RiskScore = Result.RiskScore + 15.0;
+        Result.AddHit("Score_HighRiskCategory");
+        Retract("Score_HighRiskCategory");
+}
+
+rule Score_MerchantHighRefund "商户退款率偏高 +20" salience 883 {
+    when
+        Merchant.RefundRate > 0.10
+    then
+        Result.RiskScore = Result.RiskScore + 20.0;
+        Result.AddHit("Score_MerchantHighRefund");
+        Retract("Score_MerchantHighRefund");
+}
+
+rule Score_MerchantLowRating "商户低评分 +10" salience 882 {
+    when
+        Merchant.Rating < 3.5
+    then
+        Result.RiskScore = Result.RiskScore + 10.0;
+        Result.AddHit("Score_MerchantLowRating");
+        Retract("Score_MerchantLowRating");
+}
+
+// 组合条件：有一定订单量且退款率异常的客户
+rule Score_CustomerRefundRatio "客户历史退款率异常 +20" salience 881 {
+    when
+        Customer.TotalOrders >= 5 &&
+        Customer.RefundRatio() > 0.3
+    then
+        Result.RiskScore = Result.RiskScore + 20.0;
+        Result.AddHit("Score_CustomerRefundRatio");
+        Retract("Score_CustomerRefundRatio");
+}
+
+rule Score_FirstOrderCOD "首单货到付款 +10" salience 880 {
+    when
+        Order.IsFirst == true &&
+        Order.PayMethod == "cod"
+    then
+        Result.RiskScore = Result.RiskScore + 10.0;
+        Result.AddHit("Score_FirstOrderCOD");
+        Retract("Score_FirstOrderCOD");
+}
+
+rule Score_LongPresale "超长预售 +10" salience 879 {
+    when
+        Product.PresaleDays > 30
+    then
+        Result.RiskScore = Result.RiskScore + 10.0;
+        Result.AddHit("Score_LongPresale");
+        Retract("Score_LongPresale");
+}
+
+// 组合条件：预售商品 + 货到付款，资金风险
+rule Score_PresaleCOD "预售商品货到付款 +15" salience 878 {
+    when
+        Product.PresaleDays > 0 &&
+        Order.PayMethod == "cod"
+    then
+        Result.RiskScore = Result.RiskScore + 15.0;
+        Result.AddHit("Score_PresaleCOD");
+        Retract("Score_PresaleCOD");
+}
+
+// ---- 减分（信任）规则：RiskScore 允许为负，决策阈值天然容纳 ----
+
+rule Relief_TrustedMerchant "可信商户 -10" salience 872 {
+    when
+        Merchant.IsTrusted()
+    then
+        Result.RiskScore = Result.RiskScore - 10.0;
+        Result.AddHit("Relief_TrustedMerchant");
+        Retract("Relief_TrustedMerchant");
+}
+
+rule Relief_LoyalOldCustomer "忠实老客且无拒付 -10" salience 871 {
+    when
+        Customer.RegisterDays >= 365 &&
+        Customer.HasTag("loyal") &&
+        Customer.ChargebackCount == 0
+    then
+        Result.RiskScore = Result.RiskScore - 10.0;
+        Result.AddHit("Relief_LoyalOldCustomer");
+        Retract("Relief_LoyalOldCustomer");
+}

@@ -1,0 +1,40 @@
+rule VipDiscount "id=1001;VIP九折" salience 101 {
+    when
+        Order.Rejected == false &&
+        Order.VIP == true &&
+        Order.Amount >= 1000
+    then
+        Log("VipDiscount 触发: VIP九折");
+        LogFormat("订单金额: %v", Order.Amount);
+        Order.Discount = 0.9;
+        Retract("VipDiscount");
+}
+
+rule NormalDiscount "id=1002;普通用户95折" salience 91 {
+    when
+        Order.Rejected == false &&
+        Order.VIP == false &&
+        Order.Amount >= 5000
+    then
+        Log("NormalDiscount 触发: 普通用户95折");
+        Order.Discount = 0.95;
+        Retract("NormalDiscount");
+}
+
+rule FreeFreight "id=1003;免运费" salience 92 {
+    when
+        Order.Amount >= 10000
+    then
+        Log("FreeFreight 触发: 免运费");
+        Order.Freight = 0;
+        Retract("FreeFreight");
+}
+
+rule BigOrder "id=1004;免运费" salience 93 {
+    when
+        Order.IsBigOrder()
+    then
+        Log("BigOrder 触发: 大额订单免运费");
+        Order.Freight = 0;
+        Retract("BigOrder"); // 避免规则重复执行
+}

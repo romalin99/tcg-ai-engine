@@ -1,0 +1,56 @@
+// ============================================================================
+// 运费规则（salience 200~196）：Result.Freight 初始值 = Order.Freight（基础报价）。
+//
+// FreightFree 闸门一箭双雕：
+//   1. 三条免运费规则互斥——第一条命中后其余不再执行（虽然都置 0，语义上等价，
+//      但 HitRules 里只会记录真正生效的那条）；
+//   2. 已免运费的订单不再加收偏远地区附加费（196 的 when 因闸门失效）。
+// ============================================================================
+
+rule Freight_FreeVirtual "虚拟商品免运费" salience 200 {
+    when
+        Result.Decision != "reject" &&
+        Result.FreightFree == false &&
+        Product.IsVirtual == true
+    then
+        Result.Freight = 0.0;
+        Result.FreightFree = true;
+        Result.AddHit("Freight_FreeVirtual");
+        Retract("Freight_FreeVirtual");
+}
+
+rule Freight_FreeBigOrder "满 2000 免运费" salience 199 {
+    when
+        Result.Decision != "reject" &&
+        Result.FreightFree == false &&
+        Order.Amount >= 2000.0
+    then
+        Result.Freight = 0.0;
+        Result.FreightFree = true;
+        Result.AddHit("Freight_FreeBigOrder");
+        Retract("Freight_FreeBigOrder");
+}
+
+rule Freight_FreeDiamond "钻石会员免运费" salience 198 {
+    when
+        Result.Decision != "reject" &&
+        Result.FreightFree == false &&
+        Customer.Level >= 5
+    then
+        Result.Freight = 0.0;
+        Result.FreightFree = true;
+        Result.AddHit("Freight_FreeDiamond");
+        Retract("Freight_FreeDiamond");
+}
+
+// 偏远地区附加费：只对未免运费的订单加收
+rule Freight_RemoteSurcharge "偏远地区运费 +15" salience 196 {
+    when
+        Result.Decision != "reject" &&
+        Result.FreightFree == false &&
+        Customer.IsRemoteArea()
+    then
+        Result.Freight = Result.Freight + 15.0;
+        Result.AddHit("Freight_RemoteSurcharge");
+        Retract("Freight_RemoteSurcharge");
+}
