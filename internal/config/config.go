@@ -1,6 +1,5 @@
-// Package config 加载 TOML 配置（参照 tcg-ucs-fe 的初始化框架：viper + ENV 选择
-// config/{dev,sit,prod}.toml，Config 聚合各 pkg 子配置；本项目扩展 [rules] 段
-// 描述规则引擎数据源）。
+// Package config 加载 TOML 配置：viper + ENV 选择 config/{dev,sit,prod}.toml，
+// Config 聚合各 pkg 子配置，并扩展 [rules] 段描述规则引擎数据源。
 package config
 
 import (
@@ -41,9 +40,8 @@ type RulesFileSource struct {
 	Dir string `mapstructure:"dir"` // *.grl 所在目录
 }
 
+// RulesOracleSource 规则表配置；连接信息复用 [oracle] 段的 godror 连接池
 type RulesOracleSource struct {
-	// go-ora 连接串：oracle://user:pass@host:1521/service_name
-	DSN   string `mapstructure:"dsn"`
 	Table string `mapstructure:"table"` // 规则表名，默认 RISK_RULES
 }
 
@@ -86,8 +84,8 @@ func (c *Config) ValidateRules() error {
 			return fmt.Errorf("rules.source=file 时必须配置 rules.file.dir")
 		}
 	case "oracle":
-		if c.Rules.Oracle.DSN == "" {
-			return fmt.Errorf("rules.source=oracle 时必须配置 rules.oracle.dsn")
+		if c.OracleIns.OracleUser == "" || c.OracleIns.OracleConnectStr == "" {
+			return fmt.Errorf("rules.source=oracle 时必须配置 [oracle] 段的 user / passwd / addr_connect_stringer")
 		}
 	default:
 		return fmt.Errorf("不支持的规则来源 rules.source=%q（file / oracle）", c.Rules.Source)

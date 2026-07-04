@@ -1,4 +1,4 @@
-// Package middleware HTTP 中间件（对齐 tcg-ucs-fe 的 internal/middleware）
+// Package middleware HTTP 中间件
 package middleware
 
 import (

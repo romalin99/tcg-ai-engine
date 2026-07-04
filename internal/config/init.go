@@ -85,6 +85,18 @@ func (c *Config) Init(fileName string) {
 		viperConfig.SetDefault("pprof.host", "0.0.0.0")
 	}
 
+	// 3.5th tier：oracle 连接池（godror）
+	{
+		viperConfig.SetDefault("oracle.max_open_conn", 100)
+		viperConfig.SetDefault("oracle.max_idle_conn", 100)
+		viperConfig.SetDefault("oracle.max_life_time", 30) // In second
+		viperConfig.SetDefault("oracle.max_idle_time", 30) // In minute
+		viperConfig.SetDefault("oracle.enable_stats_monitor", true)
+		viperConfig.SetDefault("oracle.stats_interval", 60) // In second
+		viperConfig.SetDefault("oracle.read_timeout", 15)   // In second
+		viperConfig.SetDefault("oracle.write_timeout", 15)  // In second
+	}
+
 	// 4th tier：日志
 	{
 		viperConfig.SetDefault("log.mode", "console") // console | file

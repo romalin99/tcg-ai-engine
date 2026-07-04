@@ -17,7 +17,7 @@ make test         # 单测（-race，含基于真实规则集的场景回归）
 make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ```
 
-## 启动框架（参照 tcg-ucs-fe）
+## 启动框架
 
 `cmd/api` 的初始化链：viper 配置（`ENV` 选择 `config/{dev,sit,prod}.toml`，`-f` 可覆盖）
 → logs 单例（`*zap.Logger` 桥接给 internal/* 与 grule）→ metrics / telemetry
@@ -25,7 +25,7 @@ make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 → fiber（sonic JSON + cors / recover / otel / 行为日志 / 访问日志 + 组级限流 / 路由级超时）
 → 信号驱动分级优雅停机（HTTP → pprof → 轮询 → producer → 连接 → 日志落盘）。
 
-## 目录结构（参考 tcg-ucs-fe）
+## 目录结构
 
 ```
 ├── cmd/
@@ -34,16 +34,16 @@ make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ├── config/                 # viper 环境配置：ENV 选择 dev/sit/prod.toml，含 [rules] 数据源段
 ├── rules/                  # 40 条 GRL 规则，按 salience 分层拆文件
 ├── internal/
-│   ├── config/             # viper 配置：聚合 pkg 子配置 + [rules] 数据源（参照 tcg-ucs-fe）
+│   ├── config/             # viper 配置：聚合 pkg 子配置 + [rules] 数据源
 │   ├── model/              # Fact 定义：Order/Customer/Product/Merchant + Result + Rule
 │   ├── engine/             # ★ RuleEngine 封装：并发复用 + 热更新 + 推理跟踪监听器
 │   ├── repository/         # 规则数据源抽象：FileRepository / OracleRepository
 │   ├── service/            # 业务编排：组装 Fact → 跑规则 → Go 侧结算
 │   ├── handler/ router/ middleware/  # HTTP 层（gofiber/fiber v3）
 │   └── types/req resp      # 请求/响应体
-├── pkg/                    # 平台组件（自 tcg-ucs-fe 引入：kafka/redis/consul/telemetry/metrics/gos/...）
+├── pkg/                    # 平台组件：kafka/redis/consul/telemetry/metrics/gos/...
 │   ├── logs/               # zap 日志（文件轮转 + 行为日志；New() 保留简单控制台入口）
-│   └── oracle/             # Oracle 连接封装（go-ora 的 Open + godror 连接池 Config 两套并存）
+│   └── oracle/             # Oracle 连接封装（godror 连接池 + 状态监控/metrics）
 ├── scripts/
 │   ├── sql/rules_table.sql # Oracle 规则表 DDL
 │   └── demo.sh             # curl 演示脚本
@@ -126,15 +126,15 @@ sed -i '' 's/Result.Discount = 0.85;/Result.Discount = 0.80;/' rules/040_discoun
 # 1. 建表
 sqlplus user/pass@host:1521/svc @scripts/sql/rules_table.sql
 # 2. 导入规则（MERGE，可反复执行）
-go run ./cmd/ruleloader -dsn 'oracle://user:pass@host:1521/svc' -dir rules
+go run ./cmd/ruleloader -user user -password pass -connect host:1521/svc -dir rules
 # 3. 改环境配置切 Oracle 源后起服务：
-#    config/{env}.toml 里 [rules] source = "oracle"，[rules.oracle] dsn = "oracle://..."
+#    config/{env}.toml 里 [rules] source = "oracle"，并在 [oracle] 段配置 user/passwd/addr_connect_stringer
 ENV=dev make run
 ```
 
 之后直接 `UPDATE RISK_RULES SET GRL_CONTENT = ...`（或 `ENABLED = 0` 下线规则），
-服务在下个轮询周期自动热加载。驱动用纯 Go 的 go-ora，本地无需 Oracle Instant Client；
-如需与 tcg-ucs-fe 生产一致换 godror，只改 `pkg/oracle` 一处。
+服务在下个轮询周期自动热加载。驱动用 godror（CGO/ODPI-C，与生产一致），运行环境需要
+Oracle Client 库；连接参数配置在 config/{env}.toml 的 [oracle] 段。
 
 ## API
 

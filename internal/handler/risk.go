@@ -1,4 +1,4 @@
-// Package handler HTTP 处理器（对齐 tcg-ucs-fe 的 internal/handler）
+// Package handler HTTP 处理器
 package handler
 
 import (

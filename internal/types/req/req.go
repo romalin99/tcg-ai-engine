@@ -1,4 +1,4 @@
-// Package req HTTP 请求体定义（对齐 tcg-ucs-fe 的 internal/types/req）
+// Package req HTTP 请求体定义
 package req
 
 import "tcg-ai-engine/internal/model"

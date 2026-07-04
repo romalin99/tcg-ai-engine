@@ -1,4 +1,4 @@
-// Package resp HTTP 响应体定义（对齐 tcg-ucs-fe 的 internal/types/resp）
+// Package resp HTTP 响应体定义
 package resp
 
 import (

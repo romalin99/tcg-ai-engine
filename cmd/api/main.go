@@ -1,4 +1,4 @@
-// 风控规则引擎服务入口（初始化框架参照 tcg-ucs-fe 的 cmd/api）：
+// 风控规则引擎服务入口：
 //
 //	viper 配置（ENV 选择 config/{dev,sit,prod}.toml，-f 可覆盖）
 //	→ 日志（logs 单例，*zap.Logger 桥接给 internal/* 与 grule）
@@ -10,7 +10,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -44,7 +43,6 @@ import (
 	"tcg-ai-engine/pkg/logs"
 	"tcg-ai-engine/pkg/memstatus"
 	"tcg-ai-engine/pkg/metrics"
-	"tcg-ai-engine/pkg/oracle"
 )
 
 var configFile = flag.String("f", "", "配置文件路径；留空按 ENV(dev/sit/prod，默认 prod) 搜索 config/{env}.toml")
@@ -59,7 +57,6 @@ func init() {
 // application 汇总运行期组件，供路由注册与优雅停机按序释放。
 type application struct {
 	zapLogger     *zap.Logger
-	db            *sql.DB // 规则 Oracle 源连接池（go-ora）；file 源为 nil
 	reloader      *engine.Reloader
 	kafkaProducer *kafka.Producer
 	pprofServer   *http.Server
@@ -85,7 +82,7 @@ func newApplication(cfg *config.Config) (*application, error) {
 	cfg.TracerProvider = cfg.Telemetry.InitTracer() // Enabled=false 时内部为 no-op
 
 	// 规则数据源：默认 file（rules/ 目录），可切 oracle
-	repo, db, err := buildRepository(cfg)
+	repo, err := buildRepository(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +93,6 @@ func newApplication(cfg *config.Config) (*application, error) {
 	// 首次加载 fail-fast：规则都装不进来，服务起来也没有意义
 	info, _, err := reloader.ReloadOnce(ctx)
 	if err != nil {
-		if db != nil {
-			db.Close()
-		}
 		return nil, fmt.Errorf("首次加载规则失败: %w", err)
 	}
 	logs.Info(ctx, "规则加载完成 source=%s rule_count=%d checksum=%s",
@@ -125,7 +119,6 @@ func newApplication(cfg *config.Config) (*application, error) {
 
 	return &application{
 		zapLogger:     zapLogger,
-		db:            db,
 		reloader:      reloader,
 		kafkaProducer: kafkaProducer,
 		stopMemStats:  stopMemStats,
@@ -134,22 +127,16 @@ func newApplication(cfg *config.Config) (*application, error) {
 	}, nil
 }
 
-// buildRepository 按配置构建规则数据源；oracle 源同时返回连接池供关闭
-func buildRepository(cfg *config.Config) (repository.RuleRepository, *sql.DB, error) {
+// buildRepository 按配置构建规则数据源。
+// oracle 源复用 [oracle] 段的 godror 连接池（连接/ping 失败时 Init 内部 Fatalf，
+// fail-fast）；池的生命周期由 cfg.Close() 统一管理。
+func buildRepository(cfg *config.Config) (repository.RuleRepository, error) {
 	switch cfg.Rules.Source {
 	case "oracle":
-		db, err := oracle.Open(cfg.Rules.Oracle.DSN)
-		if err != nil {
-			return nil, nil, err
-		}
-		repo, err := repository.NewOracleRepository(db, cfg.Rules.Oracle.Table)
-		if err != nil {
-			db.Close()
-			return nil, nil, err
-		}
-		return repo, db, nil
+		dbx := cfg.OracleIns.Init()
+		return repository.NewOracleRepository(dbx.DB, cfg.Rules.Oracle.Table)
 	default: // config.Init 已校验，这里只剩 file
-		return repository.NewFileRepository(cfg.Rules.File.Dir), nil, nil
+		return repository.NewFileRepository(cfg.Rules.File.Dir), nil
 	}
 }
 
@@ -190,13 +177,7 @@ func (a *application) shutdownComponents(ctx context.Context, shutdownCtx contex
 
 	gos.ReleasePool()
 
-	if a.db != nil {
-		logs.Info(ctx, "Closing rules oracle connection...")
-		if err := a.db.Close(); err != nil {
-			logs.Err(ctx, "Failed to close rules oracle connection: %v", err)
-		}
-	}
-
+	// 规则 Oracle 源的 godror 连接池由 cfg.Close()（OracleIns.Close）统一关闭
 	if cfg != nil {
 		logs.Info(ctx, "Closing configuration resources...")
 		cfg.Close()
