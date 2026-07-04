@@ -20,14 +20,14 @@ import (
 	gruleast "github.com/hyperjumptech/grule-rule-engine/ast"
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/config"
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/handler"
-	"github.com/romalin99/tcg-ai-engine/internal/repository"
-	"github.com/romalin99/tcg-ai-engine/internal/router"
-	"github.com/romalin99/tcg-ai-engine/internal/service"
-	"github.com/romalin99/tcg-ai-engine/pkg/logs"
-	"github.com/romalin99/tcg-ai-engine/pkg/oracle"
+	"tcg-ai-engine/internal/config"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/handler"
+	"tcg-ai-engine/internal/repository"
+	"tcg-ai-engine/internal/router"
+	"tcg-ai-engine/internal/service"
+	"tcg-ai-engine/pkg/logs"
+	"tcg-ai-engine/pkg/oracle"
 )
 
 var configFile = flag.String("f", "./configs/config.toml", "配置文件路径")

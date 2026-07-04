@@ -2,8 +2,8 @@
 package resp
 
 import (
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/model"
 )
 
 // Envelope 统一响应壳

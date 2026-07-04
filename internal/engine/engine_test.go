@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/model"
 )
 
 // 极简规则：金额达标就放行并打 9 折

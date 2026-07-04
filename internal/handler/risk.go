@@ -7,10 +7,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/service"
-	"github.com/romalin99/tcg-ai-engine/internal/types/req"
-	"github.com/romalin99/tcg-ai-engine/internal/types/resp"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/service"
+	"tcg-ai-engine/internal/types/req"
+	"tcg-ai-engine/internal/types/resp"
 )
 
 // Risk 风控评估接口

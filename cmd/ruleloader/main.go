@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/romalin99/tcg-ai-engine/pkg/oracle"
+	"tcg-ai-engine/pkg/oracle"
 )
 
 func main() {

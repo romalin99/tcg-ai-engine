@@ -1,4 +1,4 @@
-module github.com/romalin99/tcg-ai-engine
+module tcg-ai-engine
 
 go 1.26.4
 

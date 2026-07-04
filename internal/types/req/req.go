@@ -1,7 +1,7 @@
 // Package req HTTP 请求体定义（对齐 tcg-ucs-fe 的 internal/types/req）
 package req
 
-import "github.com/romalin99/tcg-ai-engine/internal/model"
+import "tcg-ai-engine/internal/model"
 
 // EvaluateRequest 风控评估请求：四个 Fact 缺一不可。
 // 字段直接复用 model 的 JSON 标签，避免 DTO 与领域模型两套定义来回搬运。

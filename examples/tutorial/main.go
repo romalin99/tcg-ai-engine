@@ -61,7 +61,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/romalin99/tcg-ai-engine/examples/tutorial/model"
+	"tcg-ai-engine/examples/tutorial/model"
 
 	"github.com/hyperjumptech/grule-rule-engine/ast"
 	"github.com/hyperjumptech/grule-rule-engine/builder"

@@ -7,9 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/model"
-	"github.com/romalin99/tcg-ai-engine/internal/types/req"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/types/req"
 )
 
 // RiskService 风控评估服务

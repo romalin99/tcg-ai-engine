@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/model"
-	"github.com/romalin99/tcg-ai-engine/internal/repository"
-	"github.com/romalin99/tcg-ai-engine/internal/types/req"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/repository"
+	"tcg-ai-engine/internal/types/req"
 )
 
 // newServiceWithRealRules 加载仓库根目录 rules/ 下的真实规则集，

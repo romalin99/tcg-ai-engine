@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/repository"
+	"tcg-ai-engine/internal/repository"
 )
 
 // Reloader 规则热更新器：定时从数据源拉取全量规则，交给 Engine.Reload。

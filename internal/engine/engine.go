@@ -30,7 +30,7 @@ import (
 	"github.com/hyperjumptech/grule-rule-engine/pkg"
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/model"
 )
 
 // KnowledgeBase 在 KnowledgeLibrary 中的注册键。

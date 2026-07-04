@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/model"
 )
 
 // OracleRepository 从 Oracle 规则表加载启用的规则。

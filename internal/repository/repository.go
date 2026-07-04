@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/model"
 )
 
 // RuleRepository 规则数据源。

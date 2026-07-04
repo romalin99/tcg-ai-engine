@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/romalin99/tcg-ai-engine/internal/model"
+	"tcg-ai-engine/internal/model"
 )
 
 // FileRepository 从目录加载所有 *.grl 文件（默认数据源）。

@@ -4,8 +4,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/engine"
-	"github.com/romalin99/tcg-ai-engine/internal/types/resp"
+	"tcg-ai-engine/internal/engine"
+	"tcg-ai-engine/internal/types/resp"
 )
 
 // Rules 规则管理接口：查看当前版本、手动触发热更新

@@ -7,9 +7,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
 
-	"github.com/romalin99/tcg-ai-engine/internal/handler"
-	"github.com/romalin99/tcg-ai-engine/internal/middleware"
-	"github.com/romalin99/tcg-ai-engine/internal/types/resp"
+	"tcg-ai-engine/internal/handler"
+	"tcg-ai-engine/internal/middleware"
+	"tcg-ai-engine/internal/types/resp"
 )
 
 // New 组装 fiber 应用：统一错误响应 + 中间件链 + 路由
