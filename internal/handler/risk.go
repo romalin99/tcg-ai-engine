@@ -24,7 +24,15 @@ func NewRisk(svc *service.RiskService, eng *engine.Engine, logger *zap.Logger) *
 	return &Risk{svc: svc, eng: eng, logger: logger}
 }
 
-// Evaluate POST /api/v1/risk/evaluate
+// Evaluate 风控评估
+//
+//	@Summary  风控评估
+//	@Tags     risk
+//	@Accept   json
+//	@Produce  json
+//	@Param    request body req.EvaluateRequest true "order/customer/product/merchant 四个 Fact"
+//	@Success  200 {object} resp.Envelope{data=resp.EvaluateData}
+//	@Router   /api/v1/risk/evaluate [post]
 func (h *Risk) Evaluate(c fiber.Ctx) error {
 	var request req.EvaluateRequest
 	// Bind().JSON 不看 Content-Type 强按 JSON 解析，与旧版 json.Decoder 行为一致

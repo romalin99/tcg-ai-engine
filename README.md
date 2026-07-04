@@ -13,8 +13,7 @@
 ```bash
 make run          # 起服务（文件规则源，:8080）
 make demo         # 另开终端：跑通 评估 / 查规则 / 热更新
-make test         # 单测（含基于真实规则集的场景回归）
-make race         # 并发安全验证
+make test         # 单测（-race，含基于真实规则集的场景回归）
 make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ```
 
@@ -24,7 +23,7 @@ make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ├── cmd/
 │   ├── api/                # 服务入口：配置 → 日志 → 数据源 → 首次加载(fail-fast) → 轮询 → HTTP → 优雅停机
 │   └── ruleloader/         # 把 rules/*.grl 批量 MERGE 进 Oracle 规则表的工具
-├── configs/                # config.toml（文件源，默认）/ config.oracle.toml（Oracle 源）
+├── config/                 # config.toml（默认）/ config.oracle.toml / dev|sit|prod.toml（环境配置）
 ├── rules/                  # 40 条 GRL 规则，按 salience 分层拆文件
 ├── internal/
 │   ├── config/             # TOML 配置加载与校验
@@ -34,9 +33,9 @@ make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 │   ├── service/            # 业务编排：组装 Fact → 跑规则 → Go 侧结算
 │   ├── handler/ router/ middleware/  # HTTP 层（gofiber/fiber v3）
 │   └── types/req resp      # 请求/响应体
-├── pkg/
-│   ├── logs/               # zap 初始化
-│   └── oracle/             # Oracle 连接封装（纯 Go 驱动 go-ora，无需 Instant Client）
+├── pkg/                    # 平台组件（自 tcg-ucs-fe 引入：kafka/redis/consul/telemetry/metrics/gos/...）
+│   ├── logs/               # zap 日志（文件轮转 + 行为日志；New() 保留简单控制台入口）
+│   └── oracle/             # Oracle 连接封装（go-ora 的 Open + godror 连接池 Config 两套并存）
 ├── scripts/
 │   ├── sql/rules_table.sql # Oracle 规则表 DDL
 │   └── demo.sh             # curl 演示脚本
@@ -121,7 +120,7 @@ sqlplus user/pass@host:1521/svc @scripts/sql/rules_table.sql
 # 2. 导入规则（MERGE，可反复执行）
 go run ./cmd/ruleloader -dsn 'oracle://user:pass@host:1521/svc' -dir rules
 # 3. 用 Oracle 配置起服务
-go run ./cmd/api -f configs/config.oracle.toml
+go run ./cmd/api -f config/config.oracle.toml
 ```
 
 之后直接 `UPDATE RISK_RULES SET GRL_CONTENT = ...`（或 `ENABLED = 0` 下线规则），
@@ -136,6 +135,9 @@ go run ./cmd/api -f configs/config.oracle.toml
 | GET  | /api/v1/rules | 当前生效规则集：来源、指纹、规则清单、生效时间 |
 | POST | /api/v1/rules/reload | 手动触发热更新（内容没变时 changed=false） |
 | GET  | /healthz | 健康检查 |
+| GET  | /livez、/readyz | 存活 / 就绪探针（fiber healthcheck） |
+| GET  | /metrics、/monitor | Prometheus 指标 / 实时监控面板 |
+| GET  | /swagger/ | Swagger UI（`make swagger` 重新生成 docs） |
 
 评估响应示例（场景：钻石会员大单）：
 

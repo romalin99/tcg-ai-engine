@@ -63,7 +63,7 @@ Desktop.ini
 
 # ==================== Local config ====================
 
-configs/*.local.toml
+config/*.local.toml
 
 # ==================== Cache & temp ====================
 

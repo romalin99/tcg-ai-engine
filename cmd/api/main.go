@@ -30,8 +30,12 @@ import (
 	"tcg-ai-engine/pkg/oracle"
 )
 
-var configFile = flag.String("f", "./configs/config.toml", "配置文件路径")
+var configFile = flag.String("f", "./config/config.toml", "配置文件路径")
 
+// @title           TCG-AI-ENGINE API
+// @version         1.0
+// @description     电商风控规则引擎服务（grule），支持规则热更新
+// @BasePath        /
 func main() {
 	flag.Parse()
 	if err := run(); err != nil {
@@ -85,7 +89,7 @@ func run() error {
 	riskHandler := handler.NewRisk(riskSvc, eng, logger)
 	rulesHandler := handler.NewRules(eng, reloader, logger)
 
-	app := router.New(riskHandler, rulesHandler, logger)
+	app := router.New(cfg, riskHandler, rulesHandler, logger)
 
 	errCh := make(chan error, 1)
 	go func() {

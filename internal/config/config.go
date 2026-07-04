@@ -4,6 +4,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -20,9 +22,23 @@ type ServerConfig struct {
 	ShutdownSeconds int    `toml:"shutdown_seconds"` // 优雅停机等待秒数
 }
 
+// Port 从 Addr 解析端口号（swagger 元信息等需要数字端口）
+func (s ServerConfig) Port() int {
+	_, portStr, err := net.SplitHostPort(s.Addr)
+	if err != nil {
+		return 8080
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 8080
+	}
+	return port
+}
+
 type LogConfig struct {
-	Level    string `toml:"level"`     // debug / info / warn / error
-	GRLTrace bool   `toml:"grl_trace"` // true 时把每个 cycle 的候选/执行规则打到 debug 日志
+	Level       string `toml:"level"`        // debug / info / warn / error
+	GRLTrace    bool   `toml:"grl_trace"`    // true 时把每个 cycle 的候选/执行规则打到 debug 日志
+	ServiceName string `toml:"service_name"` // 指标/链路中的服务标识
 }
 
 type RulesConfig struct {
@@ -47,7 +63,7 @@ func Load(path string) (*Config, error) {
 	cfg := &Config{
 		// 缺省值：本地起服务开箱即用
 		Server: ServerConfig{Addr: ":8080", ShutdownSeconds: 10},
-		Log:    LogConfig{Level: "info"},
+		Log:    LogConfig{Level: "info", ServiceName: "tcg-ai-engine"},
 		Rules: RulesConfig{
 			Source:                "file",
 			ReloadIntervalSeconds: 5,

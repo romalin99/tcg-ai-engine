@@ -1,0 +1,163 @@
+name = "tcg-ai-engine"
+env = "dev"
+host = "0.0.0.0"
+port = 8_080
+timeout = 30
+bodyLimit = 52_428_800
+
+[consul]
+hosts = [ "127.0.0.1:2379" ]
+key = "TCG-AI-ENGINE-RPC-SERVICE"
+
+[timeouts]
+quick = 10
+normal = 30
+long = 60
+upload = 120
+[oracle]
+user = ""
+passwd = ""
+addr_connect_stringer = ""
+max_open_conn = 100
+max_idle_conn = 100
+max_life_time = 30
+max_idle_time = 30
+appendedOptions = "stmtCacheSize=64 enableStmtCache=true fetchArraySize=110 prefetch_count=100 SSL=off poolMinSessions=400 poolMaxSessions=400 poolIncrement=0 enableClientResultCache=true"
+enable_stats_monitor = true
+stats_interval = 60
+read_timeout = 15
+write_timeout = 15 # 写入超时
+
+[redis]
+addr = [ "TCG-UCS-REDIS:6379", "TCG-UCS-REDIS:6379" ]
+master_name = "mymaster"
+password = ""
+db = 0
+dbs = [
+  { db = 2, poolSize = 50, setDefaultExpiration = 86400 }
+]
+
+[bigCache]
+entryExpireSeconds = 1_800
+
+# ================================================================
+# Kafka Producer (franz-go 推薦配置)
+# ================================================================
+[kafka.producer]
+# ── 连接 / 标识 ──
+brokers                 = ["TCG-KAFKA01:9092", "TCG-KAFKA02:9092", "TCG-KAFKA03:9092"]  # KAFKA_BROKERS
+client_id               = "tcg-ai-engine-producer-cid"  # KAFKA_CLIENT_ID（broker 端配额/审计）
+default_topics          = ["ai-engine-events"]       # KAFKA_TOPIC，producer 默认投递 topic
+# ── 可靠性（代码强制 acks=all + 幂等，无降级开关）──
+required_acks           = -1                             # all；持久性还依赖 broker min.insync.replicas>=2
+enable_idempotence      = true                           # 幂等去重，防重复投递
+max_in_flight           = 5                              # 幂等模式下最大 5
+record_retries          = 5                              # KAFKA_RECORD_RETRIES，单条重试次数
+hard_delivery_bound     = true                           # KAFKA_HARD_DELIVERY_BOUND：注入 AllowIdempotentProduceCancellation，
+                                                         #   让超时/重试耗尽成为在途消息硬上界并使 DLQ 生效。
+                                                         #   代价：被取消消息若重发可能重复 → 下游须按 (player_id, occurred_at) 去重
+
+# ── 超时（单位 ms，对齐 repo 既有 *_ms 约定）──
+delivery_timeout_ms     = 30000                          # KAFKA_DELIVERY_TIMEOUT，单条投递总上界 30s
+flush_timeout_ms        = 35000                          # KAFKA_FLUSH_TIMEOUT，关停冲刷上界（默认 delivery+5s）；须 < k8s terminationGracePeriodSeconds
+request_timeout_ms      = 30000                          # produce 请求超时 30s
+# ── 批量 / 吞吐 ──
+compression             = "snappy"                       # KAFKA_COMPRESSION：snappy|zstd|lz4|gzip|none
+linger_ms               = 10                             # KAFKA_LINGER，攒批等待 10ms
+batch_max_bytes         = 1048576                        # KAFKA_BATCH_MAX_BYTES，1MiB；须与 broker message.max.bytes 对齐
+# ── 背压 / 缓冲 ──
+max_buffered_records    = 200000                         # KAFKA_MAX_BUFFERED_RECORDS，条数背压阈值
+max_buffered_bytes      = 67108864                       # KAFKA_MAX_BUFFERED_BYTES，64MiB 字节背压阈值
+retry_queue_cap         = 10000                          # KAFKA_RETRY_QUEUE_CAP，DLQ/retryQueue 暂存容量
+# ── 可观测 ──
+metrics_log_interval_ms = 60000                          # METRICS_LOG_INTERVAL，指标周期日志间隔 60s（0=关闭）
+  # ── TLS（KAFKA_TLS_*）：生产建议 enable=true ──
+  # mTLS 时 cert_file/key_file 必须同时给；启用 SASL 而不启用 TLS 会明文传输凭据。
+  [kafka.producer.tls]
+  enable               = false   # KAFKA_TLS_ENABLE
+  ca_file              = ""      # KAFKA_TLS_CA_FILE，留空用系统根证书
+  cert_file            = ""      # KAFKA_TLS_CERT_FILE，mTLS 客户端证书
+  key_file             = ""      # KAFKA_TLS_KEY_FILE，mTLS 客户端私钥
+  insecure_skip_verify = false   # KAFKA_TLS_INSECURE_SKIP_VERIFY，跳过证书校验（危险，仅测试）
+
+  # ── SASL（KAFKA_SASL_*）：mechanism 留空则关闭 ──
+  [kafka.producer.sasl]
+  enable    = false   # KAFKA_SASL_ENABLE
+  mechanism = ""                 # KAFKA_SASL_MECHANISM：""|PLAIN|SCRAM-SHA-256|SCRAM-SHA-512
+  user      = ""                 # KAFKA_SASL_USER
+  pass      = ""                 # KAFKA_SASL_PASS（明文；生产优先用 pass_file）
+  pass_file = ""                 # KAFKA_SASL_PASS_FILE，从文件读口令（配 k8s secret 挂载，优于明文）
+
+  # per-topic 覆盖：仅对名称等于 default_topic 的 topic 生效（见 EffectiveTopicConfig）。
+  [kafka.producer.topics."tcg-ai-engine"]
+  acks              = "all"
+  retries           = 3
+  retry_backoff_ms  = 100
+  compression       = "lz4"
+  batch_size        = 16384    # 16KB
+  linger_ms         = 5
+  max_message_bytes = 1048576  # 1MB，需与 broker message.max.bytes 对齐
+
+# ================================================================
+# Kafka Consumer (franz-go 推薦配置)
+# ================================================================
+[kafka.consumer]
+brokers               = ["TCG-KAFKA01:9092", "TCG-KAFKA02:9092", "TCG-KAFKA03:9092"]
+client_id             = "tcg-ai-engine-consumer-cid"
+default_topics        = ["ai-engine-events"]  # 默认消费 topic 列表
+group_id              = "ai-engine-consumer-group-id"
+auto_offset_reset     = "latest"          # 新 group 从最早消费
+max_poll_records      = 500                 # 单次 poll 最大条数 = 批次屏障的批大小上限（限批保证单批处理时长可控）
+fetch_max_bytes       = 10485760            # 10MB（原 50MB 过大，调整为 10MB）
+fetch_max_partition_bytes = 10485760        # 10MB
+fetch_min_bytes       = 1                   # 有数据就立即返回
+fetch_max_wait_ms     = 300                 # 最长等待 500ms
+session_timeout_ms    = 15000               # 15s，需 > heartbeat * 3
+heartbeat_interval_ms = 3000                # 3s，建议为 session_timeout 的 1/5
+commit_timeout_ms     = 10000               # 单批位移同步提交(CommitRecords)超时
+rebalance_timeout_ms  = 60000               # 重平衡等待上限，必须 > 最坏单批处理时长(BlockRebalanceOnPoll 模式)
+shutdown_timeout_ms   = 30000               # 优雅关闭等待上限
+revoke_flush_timeout_ms = 8000              # onPartitionsRevoked flush 等待上限（需 < rebalance_timeout）
+max_workers           = 4                   # 消费协程数
+[log]
+mode = "file"
+level = "info"
+name = "tcg-ai-engine"
+serviceName = "TCG-AI-ENGINE"
+encoding = "json"
+path = "/var/log/tcg-ai-engine"
+maxSize = 500
+maxBackups = 10
+keepDays = 5
+rotation = "size"
+bufferSize = 20
+bufferFlushInterval = 200
+[log.fileInfo]
+path = "/var/log/tcg-ai-engine"
+pathBehavior = "/var/log/tcg-ai-engine/behavior"
+
+[pprof]
+enabled = true
+port = 6068
+host = "0.0.0.0"
+
+[telemetry]
+enabled = true
+server_name = "TCG-AI-ENGINE"
+endpoint = "localhost:4318"
+sampler = 1
+batcher = "jaeger"
+skip_paths = [ "/health", "/livez", "/readyz", "/metrics", "/ping", "/monitor" ]
+
+# ==================== tcg-ai-engine 服务配置（internal/config 读取）====================
+
+[server]
+addr = ":8080"              # 监听地址
+shutdown_seconds = 10       # 优雅停机等待秒数
+
+[rules]
+source = "file"             # file / oracle（oracle 源需配置 [rules.oracle] 的 dsn）
+reload_interval_seconds = 5 # 热更新轮询间隔秒数，<=0 关闭自动热更新
+
+[rules.file]
+dir = "rules"
