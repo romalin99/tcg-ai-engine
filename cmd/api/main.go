@@ -32,10 +32,10 @@ import (
 
 var configFile = flag.String("f", "./config/config.toml", "配置文件路径")
 
-// @title           TCG-AI-ENGINE API
-// @version         1.0
-// @description     电商风控规则引擎服务（grule），支持规则热更新
-// @BasePath        /
+// @title			TCG-AI-ENGINE API
+// @version		1.0
+// @description	电商风控规则引擎服务（grule），支持规则热更新
+// @BasePath		/
 func main() {
 	flag.Parse()
 	if err := run(); err != nil {

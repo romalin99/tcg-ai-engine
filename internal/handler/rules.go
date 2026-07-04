@@ -21,11 +21,11 @@ func NewRules(eng *engine.Engine, reloader *engine.Reloader, logger *zap.Logger)
 
 // Info 当前生效规则集：来源、指纹、规则清单
 //
-//	@Summary  查看当前生效规则集
-//	@Tags     rules
-//	@Produce  json
-//	@Success  200 {object} resp.Envelope{data=engine.Info}
-//	@Router   /api/v1/rules [get]
+//	@Summary	查看当前生效规则集
+//	@Tags		rules
+//	@Produce	json
+//	@Success	200	{object}	resp.Envelope{data=engine.Info}
+//	@Router		/api/v1/rules [get]
 func (h *Rules) Info(c fiber.Ctx) error {
 	info, err := h.eng.Info()
 	if err != nil {
@@ -36,11 +36,11 @@ func (h *Rules) Info(c fiber.Ctx) error {
 
 // Reload 手动触发一次热更新（与后台轮询同一条链路）
 //
-//	@Summary  手动触发规则热更新
-//	@Tags     rules
-//	@Produce  json
-//	@Success  200 {object} resp.Envelope{data=resp.ReloadData}
-//	@Router   /api/v1/rules/reload [post]
+//	@Summary	手动触发规则热更新
+//	@Tags		rules
+//	@Produce	json
+//	@Success	200	{object}	resp.Envelope{data=resp.ReloadData}
+//	@Router		/api/v1/rules/reload [post]
 func (h *Rules) Reload(c fiber.Ctx) error {
 	info, changed, err := h.reloader.ReloadOnce(c.Context())
 	if err != nil {

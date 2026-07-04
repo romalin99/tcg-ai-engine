@@ -34,7 +34,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/tcg-ai-engine_internal_types_req.EvaluateRequest"
+                            "$ref": "#/definitions/req.EvaluateRequest"
                         }
                     }
                 ],
@@ -44,13 +44,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.Envelope"
+                                    "$ref": "#/definitions/resp.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.EvaluateData"
+                                            "$ref": "#/definitions/resp.EvaluateData"
                                         }
                                     }
                                 }
@@ -75,13 +75,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.Envelope"
+                                    "$ref": "#/definitions/resp.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/tcg-ai-engine_internal_engine.Info"
+                                            "$ref": "#/definitions/engine.Info"
                                         }
                                     }
                                 }
@@ -106,13 +106,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.Envelope"
+                                    "$ref": "#/definitions/resp.Envelope"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.ReloadData"
+                                            "$ref": "#/definitions/resp.ReloadData"
                                         }
                                     }
                                 }
@@ -124,7 +124,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "tcg-ai-engine_internal_engine.Info": {
+        "engine.Info": {
             "type": "object",
             "properties": {
                 "checksum": {
@@ -149,6 +149,163 @@ const docTemplate = `{
                 "source": {
                     "description": "规则来源：file:rules / oracle:RISK_RULES",
                     "type": "string"
+                }
+            }
+        },
+        "model.Product": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "类目：electronics / gift_card / luxury / books ...",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_virtual": {
+                    "description": "虚拟商品（卡密、点卡等），无物流、易套现",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "presale_days": {
+                    "description": "预售天数，0 表示现货",
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "restricted": {
+                    "description": "管制/限购商品",
+                    "type": "boolean"
+                },
+                "stock": {
+                    "description": "库存",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.Result": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "description": "approve / review / reject",
+                    "type": "string"
+                },
+                "discount": {
+                    "description": "营销（互斥组：一单只命中一个折扣档位）",
+                    "type": "number"
+                },
+                "discount_name": {
+                    "description": "命中的折扣档位，空串=未定，作为互斥闸门",
+                    "type": "string"
+                },
+                "extra_discount": {
+                    "description": "叠加折扣是否已生效（防重复叠加）",
+                    "type": "boolean"
+                },
+                "final_amount": {
+                    "description": "结算与追踪",
+                    "type": "number"
+                },
+                "freight": {
+                    "description": "运费",
+                    "type": "number"
+                },
+                "freight_free": {
+                    "description": "免运费闸门：免运费后不再加收偏远地区附加费",
+                    "type": "boolean"
+                },
+                "hit_rules": {
+                    "description": "命中的规则名，按执行顺序",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "points_earned": {
+                    "description": "Finalize 时按倍率结算",
+                    "type": "integer"
+                },
+                "points_rate": {
+                    "description": "积分（互斥组：积分倍率只定一次）",
+                    "type": "number"
+                },
+                "reject_reason": {
+                    "description": "拒单原因",
+                    "type": "string"
+                },
+                "risk_score": {
+                    "description": "风控",
+                    "type": "number"
+                }
+            }
+        },
+        "req.EvaluateRequest": {
+            "type": "object",
+            "properties": {
+                "customer": {
+                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Customer"
+                },
+                "merchant": {
+                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Merchant"
+                },
+                "order": {
+                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Order"
+                },
+                "product": {
+                    "$ref": "#/definitions/model.Product"
+                }
+            }
+        },
+        "resp.EngineMeta": {
+            "type": "object",
+            "properties": {
+                "checksum": {
+                    "type": "string"
+                },
+                "rule_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "resp.Envelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "0 成功，非 0 失败",
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "resp.EvaluateData": {
+            "type": "object",
+            "properties": {
+                "engine": {
+                    "$ref": "#/definitions/resp.EngineMeta"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "result": {
+                    "$ref": "#/definitions/model.Result"
+                }
+            }
+        },
+        "resp.ReloadData": {
+            "type": "object",
+            "properties": {
+                "changed": {
+                    "description": "false = 内容没变，未重建",
+                    "type": "boolean"
+                },
+                "info": {
+                    "$ref": "#/definitions/engine.Info"
                 }
             }
         },
@@ -287,163 +444,6 @@ const docTemplate = `{
                 "quantity": {
                     "description": "购买件数",
                     "type": "integer"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_model.Product": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "description": "类目：electronics / gift_card / luxury / books ...",
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_virtual": {
-                    "description": "虚拟商品（卡密、点卡等），无物流、易套现",
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "presale_days": {
-                    "description": "预售天数，0 表示现货",
-                    "type": "integer"
-                },
-                "price": {
-                    "type": "number"
-                },
-                "restricted": {
-                    "description": "管制/限购商品",
-                    "type": "boolean"
-                },
-                "stock": {
-                    "description": "库存",
-                    "type": "integer"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_model.Result": {
-            "type": "object",
-            "properties": {
-                "decision": {
-                    "description": "approve / review / reject",
-                    "type": "string"
-                },
-                "discount": {
-                    "description": "营销（互斥组：一单只命中一个折扣档位）",
-                    "type": "number"
-                },
-                "discount_name": {
-                    "description": "命中的折扣档位，空串=未定，作为互斥闸门",
-                    "type": "string"
-                },
-                "extra_discount": {
-                    "description": "叠加折扣是否已生效（防重复叠加）",
-                    "type": "boolean"
-                },
-                "final_amount": {
-                    "description": "结算与追踪",
-                    "type": "number"
-                },
-                "freight": {
-                    "description": "运费",
-                    "type": "number"
-                },
-                "freight_free": {
-                    "description": "免运费闸门：免运费后不再加收偏远地区附加费",
-                    "type": "boolean"
-                },
-                "hit_rules": {
-                    "description": "命中的规则名，按执行顺序",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "points_earned": {
-                    "description": "Finalize 时按倍率结算",
-                    "type": "integer"
-                },
-                "points_rate": {
-                    "description": "积分（互斥组：积分倍率只定一次）",
-                    "type": "number"
-                },
-                "reject_reason": {
-                    "description": "拒单原因",
-                    "type": "string"
-                },
-                "risk_score": {
-                    "description": "风控",
-                    "type": "number"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_types_req.EvaluateRequest": {
-            "type": "object",
-            "properties": {
-                "customer": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Customer"
-                },
-                "merchant": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Merchant"
-                },
-                "order": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Order"
-                },
-                "product": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Product"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_types_resp.EngineMeta": {
-            "type": "object",
-            "properties": {
-                "checksum": {
-                    "type": "string"
-                },
-                "rule_count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_types_resp.Envelope": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "description": "0 成功，非 0 失败",
-                    "type": "integer"
-                },
-                "data": {},
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_types_resp.EvaluateData": {
-            "type": "object",
-            "properties": {
-                "engine": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_types_resp.EngineMeta"
-                },
-                "order_id": {
-                    "type": "string"
-                },
-                "result": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_model.Result"
-                }
-            }
-        },
-        "tcg-ai-engine_internal_types_resp.ReloadData": {
-            "type": "object",
-            "properties": {
-                "changed": {
-                    "description": "false = 内容没变，未重建",
-                    "type": "boolean"
-                },
-                "info": {
-                    "$ref": "#/definitions/tcg-ai-engine_internal_engine.Info"
                 }
             }
         }
