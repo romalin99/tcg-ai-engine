@@ -165,6 +165,7 @@ func main() {
 	resources := []pkg.Resource{
 		pkg.NewFileResource("examples/tutorial/rules/order.grl"), // 折扣/运费规则
 		pkg.NewFileResource("examples/tutorial/rules/risk.grl"),  // 风控规则（跨 Fact）
+		// pkg.NewGITResourceBundle
 	}
 
 	// 规则文件绑定：解析所有 GRL，以 ("OrderRules", "0.0.1") 为键存入 Library。

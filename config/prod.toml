@@ -23,7 +23,7 @@ max_open_conn = 100
 max_idle_conn = 100
 max_life_time = 30
 max_idle_time = 30
-appendedOptions = "stmtCacheSize=64 enableStmtCache=true fetchArraySize=110 prefetch_count=100 SSL=off poolMinSessions=400 poolMaxSessions=400 poolIncrement=0 enableClientResultCache=true"
+appendedOptions = "stmtCacheSize=64 enableStmtCache=true fetchArraySize=110 prefetch_count=100 SSL=off poolMinSessions=50 poolMaxSessions=50 poolIncrement=0 enableClientResultCache=true"
 enable_stats_monitor = true
 stats_interval = 60
 read_timeout = 15
