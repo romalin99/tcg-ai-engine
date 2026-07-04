@@ -10,7 +10,7 @@
 - HTTP 层 gofiber/fiber v3 + sonic JSON；内置 Prometheus 指标、Swagger UI、pprof、
   OTel 链路追踪与行为日志等平台能力
 - 进阶特性示例：链式调用（`Fact.Func().Field`）、数组/map/嵌套结构访问（含越界防护实践）、
-  JSON 直接定义 Fact（见 `examples/tutorial` 第二部分）
+  JSON 直接定义 Fact（见 `examples` 第二部分）
 
 ## 快速开始
 
@@ -18,8 +18,9 @@
 ENV=dev make run  # 起服务（文件规则源，dev 监听 :18080；ENV 不设默认 prod）
 make demo         # 另开终端：跑通 评估 / 查规则 / 热更新
 make test         # 单测（-race，含基于真实规则集的场景回归）
-make tutorial     # grule 教学示例：入门（订单折扣）+ 进阶（链式/数组map嵌套/JSON Fact）
 make              # 查看全部构建/质量/文档目标（help）
+
+go run ./examples # grule 教学示例：入门（订单折扣）+ 进阶（链式/数组map嵌套/JSON Fact）
 ```
 
 ## 启动框架
@@ -78,7 +79,7 @@ viper 配置（ENV 选择 config/{dev,sit,prod}.toml，-f 可覆盖）
 ├── scripts/
 │   ├── sql/rules_table.sql # Oracle 规则表 DDL
 │   └── demo.sh             # curl 演示脚本
-└── examples/tutorial/      # grule 教学示例：入门 + 进阶（逐行注释，规则在 rules/tutorial/）
+└── examples/               # grule 教学示例：入门 + 进阶（main.go 逐行注释，规则在 rules/tutorial/）
 ```
 
 ## 规则设计
@@ -167,17 +168,21 @@ ENV=dev make run
 服务在下个轮询周期自动热加载。驱动用 godror（CGO/ODPI-C，与生产一致），运行环境需要
 Oracle Client 库；连接参数配置在 config/{env}.toml 的 `[oracle]` 段，规则源与业务共用一个连接池。
 
-## 进阶特性示例（examples/tutorial 第二部分）
+## 进阶特性示例（examples 第二部分）
 
-`make tutorial` 先跑入门教程（订单折扣规则，规则文件在 `rules/tutorial/`，该子目录
-不会被服务的规则加载器扫到），随后演示三个进阶用法：
+`go run ./examples` 先跑入门教程（订单折扣规则，规则文件在 `rules/tutorial/`，该子目录
+不会被服务的规则加载器扫到），随后演示四个进阶用法：
 
-- **链式调用**：`Customer.LastOrder().Amount`、`Customer.Membership().Level` ——
+- **Fact 可见性规则**：文档约定与 Go 导出一致（首字母大写的字段/方法才可访问，方法在
+  when/then 皆可调用）。v1.20.4 实测：未导出**方法**确实不可见（求值失败、规则被静默跳过）；
+  未导出**字段**竟然可读——引擎反射直接比较值、未走会 panic 的 `Interface()`，属实现细节，
+  跨版本无保证且不可写，生产规则只应引用导出成员；
+- **链式调用**（grule 1.6.0 起支持）：`Chain.LastOrder().Amount`、`Chain.Membership().Level` ——
   方法返回对象后继续取字段/再调方法；
 - **数组 / map / 嵌套结构访问**：
   `Fact.SubFacts[1].SubFacts[2].AnIntArray[12] > 100 && Fact.SubMaps["Key"].AnIntArray[0] == 1000`。
   ⚠️ 裸下标越界会在求值时 panic；当前版本引擎会 recover 成该条规则的评估错误并**静默跳过**
-  （进程不崩、`Execute` 不报错，仅日志可见）——规则悄悄失效比崩溃更隐蔽，生产环境必须在
+  （进程不崩、`Execute` 不报错，仅日志可见；未命中的规则每个 cycle 还会重新求值、重复报错，日志按 请求数×cycle数 放大）——规则悄悄失效比崩溃更隐蔽，生产环境必须在
   Fact 层做边界保护（示例中的 `SubInt`/`MapInt` 安全访问器模式）。另外 GRL 整型字面量按
   int64 传参，Fact 方法参数要声明成 `int64`；
 - **JSON 定义 Fact**：`dataContext.AddJSON("J", jsonBytes)` 后规则里直接

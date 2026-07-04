@@ -59,7 +59,14 @@
 //
 // ============================ 进阶特性（第二部分） =====================
 //
-//  1. 链式调用：Fact.Func().Field —— 方法返回对象后继续取字段/再调方法；
+//  0. Fact 可见性规则：文档说与 Go 导出约定一致（只有首字母大写的成员可访问，
+//     方法在 when/then 皆可调用）。v1.20.4 实测（见场景四）：未导出【方法】确实
+//     不可见——反射方法集里没有，求值失败、规则被静默跳过；但未导出【字段】竟然
+//     读得到——引擎用反射直接比较值，没走会 panic 的 Interface()。这属于实现
+//     细节、文档不背书，跨版本无保证（且未导出字段不可写），生产规则只应引用
+//     导出成员；
+//  1. 链式调用：Fact.Func().Field（grule 1.6.0 起支持）——
+//     方法返回对象后继续取字段/再调方法；
 //  2. 数组 / map / 嵌套结构访问：Fact.SubFacts[1].SubFacts[2].AnIntArray[12]、
 //     Fact.SubMaps["Key"].AnIntArray[0]——注意：裸下标越界会在求值时 panic；
 //     当前 grule(v1.20.4) 引擎会 recover 并把它转成该条规则的评估错误、静默跳过
@@ -69,14 +76,14 @@
 //  3. JSON 直接定义 Fact（DataContext.AddJSON）：无需预定义 Go struct，
 //     适合规则和数据结构都要动态下发的场景。
 //
-// 运行方式：仓库根目录 make tutorial（规则文件在 rules/tutorial/ 下；该子目录
+// 运行方式：仓库根目录 go run ./examples（规则文件在 rules/tutorial/ 下；该子目录
 // 不会被服务的 FileRepository 加载——它只扫 rules/*.grl 一级，生产规则不受影响）。
 package main
 
 import (
 	"context"
 	"fmt"
-	"tcg-ai-engine/examples/tutorial/model"
+	"tcg-ai-engine/examples/model"
 
 	"github.com/hyperjumptech/grule-rule-engine/ast"
 	"github.com/hyperjumptech/grule-rule-engine/builder"
@@ -150,9 +157,13 @@ func runTutorial() {
 	// Add 的第一个参数就是 GRL 文件里引用的名字——名字对不上规则就找不到对象。
 	// 多个 Fact 各自注册，规则里可以在同一个 when 里跨 Fact 组合条件。
 	dataContext := ast.NewDataContext()
-	dataContext.Add("Order", order)
-	dataContext.Add("Customer", customer)
-	dataContext.Add("Merchant", merchant)
+	for name, fact := range map[string]any{
+		"Order": order, "Customer": customer, "Merchant": merchant,
+	} {
+		if err := dataContext.Add(name, fact); err != nil {
+			panic(err)
+		}
+	}
 	// 创建Knowledge Library：已编译规则集（AST）的仓库，
 	// 以 (name, version) 为键，可存多套规则、可被多个引擎共享。
 	knowledgeLibrary := ast.NewKnowledgeLibrary()
@@ -164,7 +175,7 @@ func runTutorial() {
 	// 也可用 bundle 按通配符批量加载：
 	// bundle := pkg.NewFileResourceBundle("rules/tutorial", "rules/tutorial/**/*.grl")
 	// err = ruleBuilder.BuildRulesFromBundle("OrderRules", "0.0.1", bundle)
-	// 注意路径相对仓库根目录（make tutorial 即在根目录运行）。
+	// 注意路径相对仓库根目录（go run ./examples 即在根目录运行）。
 	resources := []pkg.Resource{
 		pkg.NewFileResource("rules/tutorial/order.grl"), // 折扣/运费规则
 		pkg.NewFileResource("rules/tutorial/risk.grl"),  // 风控规则（跨 Fact）
@@ -308,6 +319,22 @@ type Output struct {
 	Notes string
 }
 
+// VisFact 演示 Fact 可见性（文档 vs v1.20.4 实测，见场景四）
+type VisFact struct {
+	Public string // 导出字段：GRL 可读写
+	secret string // 未导出字段：实测 when 里竟能读到（实现细节，勿依赖，且不可写）
+	Seen   bool   // 由 then 里的 MarkSeen() 置位，演示"then 里调用方法"
+}
+
+// PublicTag 导出方法：可在 when 里作为条件的一部分调用
+func (v *VisFact) PublicTag() string { return "tag-" + v.Public }
+
+// MarkSeen 导出方法：可在 then 里被调用（对 Fact 产生副作用）
+func (v *VisFact) MarkSeen() { v.Seen = true }
+
+// hidden 未导出方法：不在反射方法集里，GRL 调用它会求值失败（真·不可见）
+func (v *VisFact) hidden() bool { return v.secret != "" }
+
 // ruleChained 链式调用：方法返回对象再取字段，两级链均可继续展开
 const ruleChained = `
 rule ChainedCall "链式调用 Fact.Func().Field" salience 100 {
@@ -354,6 +381,39 @@ rule JSONFact "JSON 定义的动态 Fact" salience 70 {
     then
         Out.Notes = Out.Notes + "[json-fact:金牌用户] ";
         Retract("JSONFact");
+}`
+
+// ruleVisOK 可见性正例：when 里调导出方法做条件，then 里调导出方法改状态
+const ruleVisOK = `
+rule VisOK "导出字段/方法可访问；方法在 when 与 then 中皆可调用" salience 20 {
+    when
+        Vis.Public == "open" &&
+        Vis.PublicTag() == "tag-open"
+    then
+        Vis.MarkSeen();
+        Out.Notes = Out.Notes + "[visibility:导出成员OK] ";
+        Retract("VisOK");
+}`
+
+// ruleVisField 未导出【字段】：文档说不可见，v1.20.4 实测 when 里能读到——
+// 引擎反射直接比较值、未调用会 panic 的 Interface()。实现细节，跨版本无保证，勿依赖。
+const ruleVisField = `
+rule VisField "未导出字段：文档说不可见，v1.20.4 实测竟可读（勿依赖）" salience 10 {
+    when
+        Vis.secret == "hidden"
+    then
+        Out.Notes = Out.Notes + "[visibility:未导出字段竟可读!] ";
+        Retract("VisField");
+}`
+
+// ruleVisMethod 未导出【方法】：不在反射方法集里，求值失败、规则被静默跳过（真·不可见）
+const ruleVisMethod = `
+rule VisMethod "未导出方法真不可见：求值失败，规则被静默跳过" salience 5 {
+    when
+        Vis.hidden() == true
+    then
+        Out.Notes = Out.Notes + "[visibility:这行不可能出现] ";
+        Retract("VisMethod");
 }`
 
 // buildKB 把若干段内联 GRL 构建成一个 KnowledgeBase 实例
@@ -446,7 +506,9 @@ func runAdvanced() {
 	}
 
 	fmt.Println("== 场景二：数据缺失 + 裸下标规则 → 引擎 recover 越界 panic，规则被静默跳过 ==")
-	fmt.Println("   （注意 grule 打出的 ERROR：RawIndex 求值失败；Execute 本身不报错）")
+	fmt.Println("   （注意 grule 打出的 ERROR：RawIndex 求值失败；Execute 本身不报错。")
+	fmt.Println("     未命中又不 Retract 的规则每个 cycle 都会重新求值——本场景 3 轮就报 3 次，")
+	fmt.Println("     生产环境这种错误日志会按 请求数×cycle数 放大，这也是要做边界保护的原因之一）")
 	if out, err := runAdvancedOnce(kbAll, shortFact()); err != nil {
 		fmt.Println("  执行失败:", err)
 	} else {
@@ -459,6 +521,37 @@ func runAdvanced() {
 	} else {
 		fmt.Println("  Out.Notes =", out.Notes)
 	}
+
+	runVisibility()
+}
+
+// runVisibility 场景四：Fact 可见性——导出成员正常；未导出方法真不可见（求值失败被跳过）；
+// 未导出字段实测竟可读（文档说不可见），属实现细节勿依赖
+func runVisibility() {
+	fmt.Println("== 场景四：Fact 可见性（文档 vs 实测）==")
+	fmt.Println("   VisOK：when 调导出方法做条件 + then 调 MarkSeen() 改状态；")
+	fmt.Println("   VisMethod：调未导出方法 hidden() → 求值失败被跳过（下面的 ERROR，真·不可见）；")
+	fmt.Println("   VisField：读未导出字段 secret → v1.20.4 实测竟然命中（文档说不可见；勿依赖）")
+
+	kb, err := buildKB("advanced-visibility", ruleVisOK, ruleVisField, ruleVisMethod)
+	if err != nil {
+		panic(err)
+	}
+
+	vis := &VisFact{Public: "open", secret: "hidden"}
+	out := &Output{}
+	dctx := ast.NewDataContext()
+	if err := dctx.Add("Vis", vis); err != nil {
+		panic(err)
+	}
+	if err := dctx.Add("Out", out); err != nil {
+		panic(err)
+	}
+	if err := engine.NewGruleEngine().Execute(dctx, kb); err != nil {
+		fmt.Println("  执行失败:", err)
+		return
+	}
+	fmt.Println("  Out.Notes =", out.Notes, "| Vis.Seen =", vis.Seen, "（then 里的方法调用生效）")
 }
 
 // ══════════════════════════ 入口 ══════════════════════════
@@ -469,14 +562,17 @@ func main() {
 	// logger.SetLogger只改logger.Log，各包init时已缓存Noop副本，改了也没人用
 	// ast.SetLogger 内部按类型分发，原生支持 *zap.Logger / *logrus.Logger / *zerolog.Logger
 	// 开发模式配置（人类可读格式），但级别提到 Info——
-	// Debug 级别下 grule 会打印海量 AST 构建/求值内部日志，淹没规则输出
+	// Debug 级别下 grule 会打印海量 AST 构建/求值内部日志，淹没规则输出。
+	// 关掉 ERROR 级自动附带的堆栈：场景二里 RawIndex 每个 cycle 都会重新求值、
+	// 每轮报一次错，带堆栈会刷屏；单行错误足以看清「规则被静默跳过」。
 	zapCfg := zap.NewDevelopmentConfig()
 	zapCfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	zapCfg.DisableStacktrace = true
 	zapLog, err := zapCfg.Build()
 	if err != nil {
 		panic(err)
 	}
-	defer zapLog.Sync()
+	defer zapLog.Sync() //nolint:errcheck // 进程退出前尽力刷盘，失败无可挽回
 	ast.SetLogger(zapLog)
 
 	fmt.Println("════════════ 第一部分：入门教程（订单折扣规则） ════════════")
