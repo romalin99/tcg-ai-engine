@@ -10,7 +10,7 @@
 - HTTP 层 gofiber/fiber v3 + sonic JSON；内置 Prometheus 指标、Swagger UI、pprof、
   OTel 链路追踪与行为日志等平台能力
 - 进阶特性示例：链式调用（`Fact.Func().Field`）、数组/map/嵌套结构访问（含越界防护实践）、
-  JSON 直接定义 Fact（见 `examples/advanced`）
+  JSON 直接定义 Fact（见 `examples/tutorial` 第二部分）
 
 ## 快速开始
 
@@ -18,10 +18,8 @@
 ENV=dev make run  # 起服务（文件规则源，dev 监听 :18080；ENV 不设默认 prod）
 make demo         # 另开终端：跑通 评估 / 查规则 / 热更新
 make test         # 单测（-race，含基于真实规则集的场景回归）
-make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
+make tutorial     # grule 教学示例：入门（订单折扣）+ 进阶（链式/数组map嵌套/JSON Fact）
 make              # 查看全部构建/质量/文档目标（help）
-
-go run ./examples/advanced  # 进阶示例：链式调用 / 数组map嵌套访问 / JSON Fact
 ```
 
 ## 启动框架
@@ -64,6 +62,7 @@ viper 配置（ENV 选择 config/{dev,sit,prod}.toml，-f 可覆盖）
 │   └── ruleloader/         # 把 rules/*.grl 批量 MERGE 进 Oracle 规则表的工具（godror）
 ├── config/                 # viper 环境配置：ENV 选择 dev/sit/prod.toml
 ├── rules/                  # 40 条 GRL 规则，按 salience 分层拆文件
+│   └── tutorial/           # 教学示例规则（子目录不会被服务加载，loader 只扫一级 *.grl）
 ├── docs/                   # swag 生成的 OpenAPI 文档（make swagger 重新生成）
 ├── internal/
 │   ├── config/             # viper 配置：聚合 pkg 子配置 + [rules] 数据源段
@@ -79,9 +78,7 @@ viper 配置（ENV 选择 config/{dev,sit,prod}.toml，-f 可覆盖）
 ├── scripts/
 │   ├── sql/rules_table.sql # Oracle 规则表 DDL
 │   └── demo.sh             # curl 演示脚本
-└── examples/
-    ├── tutorial/           # grule 入门教学示例（含逐行注释）
-    └── advanced/           # 进阶示例：链式调用、数组/map/嵌套访问（越界防护）、JSON Fact
+└── examples/tutorial/      # grule 教学示例：入门 + 进阶（逐行注释，规则在 rules/tutorial/）
 ```
 
 ## 规则设计
@@ -170,9 +167,10 @@ ENV=dev make run
 服务在下个轮询周期自动热加载。驱动用 godror（CGO/ODPI-C，与生产一致），运行环境需要
 Oracle Client 库；连接参数配置在 config/{env}.toml 的 `[oracle]` 段，规则源与业务共用一个连接池。
 
-## 进阶特性示例（examples/advanced）
+## 进阶特性示例（examples/tutorial 第二部分）
 
-`go run ./examples/advanced` 演示三个 grule 进阶用法：
+`make tutorial` 先跑入门教程（订单折扣规则，规则文件在 `rules/tutorial/`，该子目录
+不会被服务的规则加载器扫到），随后演示三个进阶用法：
 
 - **链式调用**：`Customer.LastOrder().Amount`、`Customer.Membership().Level` ——
   方法返回对象后继续取字段/再调方法；
