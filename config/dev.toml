@@ -135,7 +135,7 @@ bufferSize = 20
 bufferFlushInterval = 200
 [log.fileInfo]
 path = "logs"
-pathBehavior = "logs/behavior"
+pathBehavior = "/var/log/tcg-ai-engine/behavior"
 
 [pprof]
 enabled = true
