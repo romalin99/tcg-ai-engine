@@ -1,9 +1,10 @@
 name = "tcg-ai-engine"
 env = "prod"
 host = "0.0.0.0"
-port = 7_001
+port = 18_080
 timeout = 30
 bodyLimit = 52_428_800
+shutdownTimeout = 10
 
 [consul]
 hosts = [ "127.0.0.1:2379" ]
@@ -130,13 +131,6 @@ endpoint = "localhost:4318"
 sampler = 1
 batcher = "jaeger"
 skip_paths = [ "/health", "/livez", "/readyz", "/metrics", "/ping", "/monitor" ]
-
-# ==================== tcg-ai-engine 服务配置（internal/config 读取）====================
-
-[server]
-addr = ":8080"              # 监听地址
-shutdown_seconds = 10       # 优雅停机等待秒数
-
 [rules]
 source = "file"             # file / oracle（oracle 源需配置 [rules.oracle] 的 dsn）
 reload_interval_seconds = 5 # 热更新轮询间隔秒数，<=0 关闭自动热更新

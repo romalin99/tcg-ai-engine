@@ -3,7 +3,7 @@
 # 用法：先 make run（或 go run ./cmd/api），另开终端执行 ./scripts/demo.sh
 set -euo pipefail
 
-BASE="${BASE:-http://localhost:8080}"
+BASE="${BASE:-http://localhost:18080}"
 
 say() { printf '\n\033[1;36m== %s ==\033[0m\n' "$*"; }
 

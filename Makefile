@@ -29,10 +29,10 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Variables ─────────────────────────────────────────────────────────────────
-APP     := tcg-ai-engine
+APP     := ai-rulex-engine
 BUILD   := ./cmd/api
 MAIN    := $(BUILD)/main.go
-OUTPUT  := bin/$(APP)
+OUTPUT  := $(BUILD)/$(APP)
 GO      := go
 GCFLAGS := "all=-N -l"
 LDFLAGS := "-s -w"
@@ -68,23 +68,14 @@ release: ## Build stripped release binary
 	$(GO) build -o $(OUTPUT) -ldflags $(LDFLAGS) $(MAIN)
 
 # ── Run & Clean ───────────────────────────────────────────────────────────────
-.PHONY: run run-oracle demo tutorial clean modclean
+.PHONY: run clean modclean
 
-run: build ## Build then run the application (file rule source)
+run: build ## Build then run the application
 	@echo "→ Running $(APP)..."
-	@$(OUTPUT) -f ./config/config.toml
-
-run-oracle: build ## Build then run with the Oracle rule source
-	@$(OUTPUT) -f ./config/config.oracle.toml
-
-demo: ## After the service is up, run evaluate / rules / hot-reload demo
-	./scripts/demo.sh
-
-tutorial: ## Run the grule tutorial example (examples/tutorial)
-	$(GO) run ./examples/tutorial
+	@$(OUTPUT)
 
 clean: ## Remove build output and log files
-	@rm -rf bin coverage.out *.log
+	@rm -f $(OUTPUT) rulex-engine.log
 
 modclean: ## Clean module/build/test cache and tidy
 	$(GO) clean -cache -modcache -testcache && $(GO) mod tidy

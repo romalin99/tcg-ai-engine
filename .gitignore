@@ -1,7 +1,8 @@
 # ==================== Go ====================
 
 # 编译产物与调试二进制
-/bin/
+/bin
+cmd/api/ai-rulex-engine
 *.exe
 *.exe~
 *.dll

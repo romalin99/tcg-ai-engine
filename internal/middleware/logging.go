@@ -28,20 +28,3 @@ func AccessLog(logger *zap.Logger) fiber.Handler {
 		return nil
 	}
 }
-
-// Recover panic 兜底中间件：单个请求 panic 不拖垮整个服务
-func Recover(logger *zap.Logger) fiber.Handler {
-	return func(c fiber.Ctx) (err error) {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Error("panic recovered",
-					zap.Any("error", r),
-					zap.String("path", c.Path()),
-					zap.Stack("stack"))
-				err = c.Status(fiber.StatusInternalServerError).
-					JSON(fiber.Map{"code": 50000, "message": "internal server error"})
-			}
-		}()
-		return c.Next()
-	}
-}

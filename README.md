@@ -11,11 +11,19 @@
 ## 快速开始
 
 ```bash
-make run          # 起服务（文件规则源，:8080）
+ENV=dev make run  # 起服务（文件规则源，dev 监听 :18080；ENV 不设默认 prod）
 make demo         # 另开终端：跑通 评估 / 查规则 / 热更新
 make test         # 单测（-race，含基于真实规则集的场景回归）
 make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ```
+
+## 启动框架（参照 tcg-ucs-fe）
+
+`cmd/api` 的初始化链：viper 配置（`ENV` 选择 `config/{dev,sit,prod}.toml`，`-f` 可覆盖）
+→ logs 单例（`*zap.Logger` 桥接给 internal/* 与 grule）→ metrics / telemetry
+→ 规则数据源 → 首次加载（fail-fast）→ 热更新轮询 → 可选 kafka producer / pprof / memstats
+→ fiber（sonic JSON + cors / recover / otel / 行为日志 / 访问日志 + 组级限流 / 路由级超时）
+→ 信号驱动分级优雅停机（HTTP → pprof → 轮询 → producer → 连接 → 日志落盘）。
 
 ## 目录结构（参考 tcg-ucs-fe）
 
@@ -23,10 +31,10 @@ make tutorial     # 运行 grule 入门教学示例（examples/tutorial）
 ├── cmd/
 │   ├── api/                # 服务入口：配置 → 日志 → 数据源 → 首次加载(fail-fast) → 轮询 → HTTP → 优雅停机
 │   └── ruleloader/         # 把 rules/*.grl 批量 MERGE 进 Oracle 规则表的工具
-├── config/                 # config.toml（默认）/ config.oracle.toml / dev|sit|prod.toml（环境配置）
+├── config/                 # viper 环境配置：ENV 选择 dev/sit/prod.toml，含 [rules] 数据源段
 ├── rules/                  # 40 条 GRL 规则，按 salience 分层拆文件
 ├── internal/
-│   ├── config/             # TOML 配置加载与校验
+│   ├── config/             # viper 配置：聚合 pkg 子配置 + [rules] 数据源（参照 tcg-ucs-fe）
 │   ├── model/              # Fact 定义：Order/Customer/Product/Merchant + Result + Rule
 │   ├── engine/             # ★ RuleEngine 封装：并发复用 + 热更新 + 推理跟踪监听器
 │   ├── repository/         # 规则数据源抽象：FileRepository / OracleRepository
@@ -119,8 +127,9 @@ sed -i '' 's/Result.Discount = 0.85;/Result.Discount = 0.80;/' rules/040_discoun
 sqlplus user/pass@host:1521/svc @scripts/sql/rules_table.sql
 # 2. 导入规则（MERGE，可反复执行）
 go run ./cmd/ruleloader -dsn 'oracle://user:pass@host:1521/svc' -dir rules
-# 3. 用 Oracle 配置起服务
-go run ./cmd/api -f config/config.oracle.toml
+# 3. 改环境配置切 Oracle 源后起服务：
+#    config/{env}.toml 里 [rules] source = "oracle"，[rules.oracle] dsn = "oracle://..."
+ENV=dev make run
 ```
 
 之后直接 `UPDATE RISK_RULES SET GRL_CONTENT = ...`（或 `ENABLED = 0` 下线规则），

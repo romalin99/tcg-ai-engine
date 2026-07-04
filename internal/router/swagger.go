@@ -14,10 +14,10 @@ import (
 	"tcg-ai-engine/pkg/logs"
 )
 
-// InitSwagger registers the Swagger UI routes on the given Fiber app.
+// Init registers the Swagger UI routes on the given Fiber app.
 // It resolves the host IP (overridable via the SWAGGER_HOST environment variable),
 // populates the SwaggerInfo metadata, and mounts the UI at /swagger/*.
-func InitSwagger(app *fiber.App, c *config.Config) {
+func Init(app *fiber.App, c *config.Config) {
 	host := getLocalIP()
 
 	if envHost := os.Getenv("SWAGGER_HOST"); envHost != "" {
@@ -28,7 +28,7 @@ func InitSwagger(app *fiber.App, c *config.Config) {
 		host = getOutboundIP()
 	}
 
-	docs.SwaggerInfo.Host = net.JoinHostPort(host, strconv.Itoa(c.Server.Port()))
+	docs.SwaggerInfo.Host = net.JoinHostPort(host, strconv.Itoa(c.Port))
 	docs.SwaggerInfo.BasePath = "/"
 	docs.SwaggerInfo.Title = "REST API Document For TCG-AI-ENGINE"
 	docs.SwaggerInfo.Description = "电商风控规则引擎（grule）API"

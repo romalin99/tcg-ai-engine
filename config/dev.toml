@@ -1,9 +1,10 @@
 name = "tcg-ai-engine"
 env = "dev"
 host = "0.0.0.0"
-port = 8_080
+port = 18_080
 timeout = 30
 bodyLimit = 52_428_800
+shutdownTimeout = 10
 
 [consul]
 hosts = [ "127.0.0.1:2379" ]
@@ -45,7 +46,7 @@ entryExpireSeconds = 1_800
 # ================================================================
 [kafka.producer]
 # ── 连接 / 标识 ──
-brokers                 = ["TCG-KAFKA01:9092", "TCG-KAFKA02:9092", "TCG-KAFKA03:9092"]  # KAFKA_BROKERS
+brokers                 = []  # KAFKA_BROKERS；dev 默认不连 kafka，启用时填真实 broker 列表
 client_id               = "tcg-ai-engine-producer-cid"  # KAFKA_CLIENT_ID（broker 端配额/审计）
 default_topics          = ["ai-engine-events"]       # KAFKA_TOPIC，producer 默认投递 topic
 # ── 可靠性（代码强制 acks=all + 幂等，无降级开关）──
@@ -120,7 +121,7 @@ shutdown_timeout_ms   = 30000               # 优雅关闭等待上限
 revoke_flush_timeout_ms = 8000              # onPartitionsRevoked flush 等待上限（需 < rebalance_timeout）
 max_workers           = 4                   # 消费协程数
 [log]
-mode = "file"
+mode = "console"
 level = "info"
 name = "tcg-ai-engine"
 serviceName = "TCG-AI-ENGINE"
@@ -133,8 +134,8 @@ rotation = "size"
 bufferSize = 20
 bufferFlushInterval = 200
 [log.fileInfo]
-path = "/var/log/tcg-ai-engine"
-pathBehavior = "/var/log/tcg-ai-engine/behavior"
+path = "logs"
+pathBehavior = "logs/behavior"
 
 [pprof]
 enabled = true
@@ -148,13 +149,6 @@ endpoint = "localhost:4318"
 sampler = 1
 batcher = "jaeger"
 skip_paths = [ "/health", "/livez", "/readyz", "/metrics", "/ping", "/monitor" ]
-
-# ==================== tcg-ai-engine 服务配置（internal/config 读取）====================
-
-[server]
-addr = ":8080"              # 监听地址
-shutdown_seconds = 10       # 优雅停机等待秒数
-
 [rules]
 source = "file"             # file / oracle（oracle 源需配置 [rules.oracle] 的 dsn）
 reload_interval_seconds = 5 # 热更新轮询间隔秒数，<=0 关闭自动热更新
